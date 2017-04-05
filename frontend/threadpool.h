@@ -2,11 +2,11 @@
 #define THREADPOOL_H
 
 class Threadpool {
-  int threadNum;
+  int thread_num;
 
 public:
   Threadpool(int num);
-  int getThreadNum();
+  int get_thread_num();
 
 };
 

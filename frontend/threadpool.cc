@@ -1,9 +1,9 @@
 #include "threadpool.h"
 
 Threadpool::Threadpool(int num){
-  threadNum = num;
+  thread_num = num;
 }
 
-int Threadpool::getThreadNum(){
-  return threadNum;
+int Threadpool::get_thread_num(){
+  return thread_num;
 }
