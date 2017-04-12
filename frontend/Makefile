@@ -2,7 +2,7 @@ TARGETS = frontend
 
 all: $(TARGETS)
 
-frontend: frontend.cc threadpool.cc debug.cc
+frontend: frontend.cc request.cc response.cc helper.cc
 	g++ $^ -lpthread -o $@
 
 clean::

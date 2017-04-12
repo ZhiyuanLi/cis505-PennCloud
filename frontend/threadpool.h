@@ -7,7 +7,6 @@ class Threadpool {
 public:
   Threadpool(int num);
   int get_thread_num();
-
 };
 
 #endif

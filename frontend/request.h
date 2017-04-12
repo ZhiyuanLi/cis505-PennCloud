@@ -1,0 +1,22 @@
+#ifndef REQUEST_H
+#define REQUEST_H
+
+#include <map>
+#include <string>
+
+using namespace std;
+
+class Request {
+public:
+  string method;
+  string path;
+  string http_version;
+  map<string, string> headers;
+  string body;
+  bool valid;
+
+public:
+  Request(int fd);
+};
+
+#endif
