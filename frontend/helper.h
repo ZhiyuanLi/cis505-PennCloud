@@ -12,6 +12,9 @@ void debug(int vflag, const char *format, ...);
 /* read len from fd to buffer*/
 int do_read(int fd, char *buf, int len);
 
+/* write buffer with len into fd*/
+int do_write(int fd, char *buf, int len);
+
 /* read a line from a fd, till \r\n or end of file*/
 string read_line(int fd);
 

@@ -1,9 +1,9 @@
+#include <sstream>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string>
 #include <unistd.h>
 #include <vector>
-#include <sstream>
 
 #include "helper.h"
 
@@ -31,6 +31,19 @@ int do_read(int fd, char *buf, int len) {
     rcvd += n;
   }
   return rcvd;
+}
+
+/* write buffer with len into fd*/
+int do_write(int fd, char *buf, int len) {
+  int sent = 0;
+  while (sent < len) {
+    int n = write(fd, &buf[sent], len - sent);
+    if (n < 0) {
+      return 0;
+    }
+    sent += n;
+  }
+  return 1;
 }
 
 /* read a line from a fd, till \r\n or end of file*/
@@ -66,12 +79,12 @@ read:
 
 /* split a string by delimiter */
 vector<string> split(const string &s, char delim) {
-    vector<string> elems;
-    stringstream ss;
-    ss.str(s);
-    string item;
-    while (getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
-    return elems;
+  vector<string> elems;
+  stringstream ss;
+  ss.str(s);
+  string item;
+  while (getline(ss, item, delim)) {
+    elems.push_back(item);
+  }
+  return elems;
 }

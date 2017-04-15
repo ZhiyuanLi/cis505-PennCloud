@@ -36,7 +36,7 @@ int open_socket(int &listen_fd, struct sockaddr_in &servaddr,
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
   servaddr.sin_port = htons(port);
-  
+
   if (bind(listen_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
     debug(1, "Fail to bind the socket!\n");
     return -2;
@@ -56,10 +56,10 @@ void *client_handler(void *comm_fd) {
 
   // Not support Persistent Connections
   Request req(fd);
-  // if(req.valid){
-  //   Response rep(req);
-  //   rep.reply(fd);
-  // }
+  if (req.valid) {
+    Response rep(req);
+    rep.reply(fd);
+  }
 
   fds.erase(fd);
   close(fd);
