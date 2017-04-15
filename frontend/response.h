@@ -22,6 +22,7 @@ public:
 
 private:
   void reg(Request req);
+  void login(Request req);
 };
 
 #endif
