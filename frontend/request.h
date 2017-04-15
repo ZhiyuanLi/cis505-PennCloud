@@ -7,16 +7,17 @@
 using namespace std;
 
 class Request {
-public:
-  string method;
-  string path;
-  string http_version;
-  map<string, string> headers;
-  string body;
-  bool valid;
+    public:
+      string method;
+      string path;
+      string http_version;
+      map<string, string> headers;
+      map<string, string> cookies;
+      string body;
+      bool valid;
 
-public:
-  Request(int fd);
+    public:
+      Request(int fd);
 };
 
 #endif

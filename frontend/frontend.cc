@@ -18,7 +18,7 @@
 
 using namespace std;
 
-int vflag = 0; // falg to show debug info
+int vflag = 0; // flag to show debug info
 set<int> fds;  // active clients' file descriptors
 
 /*open a stream socket*/
@@ -36,6 +36,7 @@ int open_socket(int &listen_fd, struct sockaddr_in &servaddr,
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
   servaddr.sin_port = htons(port);
+  
   if (bind(listen_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
     debug(1, "Fail to bind the socket!\n");
     return -2;

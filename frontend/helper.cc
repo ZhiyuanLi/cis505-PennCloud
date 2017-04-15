@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string>
 #include <unistd.h>
+#include <vector>
+#include <sstream>
 
 #include "helper.h"
 
@@ -60,4 +62,16 @@ read:
   }
   line = line.substr(0, line.length() - 2);
   return line;
+}
+
+/* split a string by delimiter */
+vector<string> split(const string &s, char delim) {
+    vector<string> elems;
+    stringstream ss;
+    ss.str(s);
+    string item;
+    while (getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+    return elems;
 }
