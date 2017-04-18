@@ -23,6 +23,9 @@ public:
 private:
   void reg(Request req);
   void login(Request req);
+  void upload(Request req);
+  void handle_upload(Request req);
+  void download(Request req);
 };
 
 #endif

@@ -18,7 +18,7 @@ Request::Request(int fd) {
   // sanity check
   if (line.empty()) {
     valid = false;
-    debug(1, "Initial line is empty");
+    debug(1, "Initial line is empty\n");
     return;
   }
 
@@ -26,7 +26,7 @@ Request::Request(int fd) {
   string initial_line = line;
   vector<string> initial_line_tokens = split(initial_line.c_str(), ' ');
   if (initial_line_tokens.size() != 3) {
-      debug(1, "Initial line token numbers != 3");
+      debug(1, "Initial line token numbers != 3\n");
       valid = false;
       return;
   }
@@ -74,7 +74,7 @@ Request::Request(int fd) {
   }
 
   // POST message body
-  char buf[1024];
+  char buf[50000];
   if (this->method == "POST" && content_length > 0) {
       do_read(fd, buf, content_length);
       this->body = string(buf);
