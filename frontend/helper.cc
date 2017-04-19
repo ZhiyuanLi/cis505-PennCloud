@@ -1,8 +1,12 @@
+#include <dirent.h>
+#include <fstream>
+#include <iostream>
 #include <sstream>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string>
 #include <unistd.h>
+#include <vector>
 #include <vector>
 
 #include "helper.h"
@@ -87,4 +91,40 @@ vector<string> split(const string &s, char delim) {
     elems.push_back(item);
   }
   return elems;
+}
+
+/* extract uploaded file content from request body */
+string extract_file_content(string req_body) {
+  req_body = req_body.substr(req_body.find("\r\n\r\n") + 4);
+  return req_body.substr(0, req_body.find("------WebKitFormBoundary") - 1);
+}
+
+/* extract uploaded file name from request body */
+string extract_file_name(string req_body) {
+  req_body = req_body.substr(req_body.find("filename=\"") + 10);
+  return req_body.substr(0, req_body.find("\""));
+}
+
+/* create and store uploaded files */
+void store_file(string dir, string filename, string file_content) {
+  ofstream outfile(dir + filename);
+  outfile << file_content;
+  outfile.close();
+}
+
+/* list all files under a directory */
+vector<string> list_all_files(string dir) {
+  DIR *file_dir;
+  struct dirent *entry;
+  vector<string> files;
+  if ((file_dir = opendir(dir.c_str()))) {
+    while ((entry = readdir(file_dir))) {
+      if ((entry->d_name)[0] != '.') {
+        // cout << entry->d_name << "\n";
+        files.push_back(entry->d_name);
+      }
+    }
+    closedir(file_dir);
+  }
+  return files;
 }

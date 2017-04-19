@@ -23,6 +23,9 @@ private:
   void reg(Request req);
   void login(Request req);
   bool is_already_login(map<string, string> cookies, string &username);
+  void upload(Request req);
+  void handle_upload(Request req);
+  void download(Request req);
 };
 
 #endif

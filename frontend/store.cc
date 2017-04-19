@@ -3,14 +3,12 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "store.h"
 #include "constants.h"
+#include "store.h"
 
 using namespace std;
 
-void add_user(string username, string password){
-  users[username] = password;
-}
+void add_user(string username, string password) { users[username] = password; }
 
 bool is_user_exsit(string username) {
   return users.count(username) == 1 ? true : false;

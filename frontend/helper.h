@@ -21,4 +21,16 @@ string read_line(int fd);
 /* split a string by delimiter */
 vector<string> split(const string &s, char delim);
 
+/* extract uploaded file content from request body */
+string extract_file_content(string req_body);
+
+/* extract uploaded file name from request body */
+string extract_file_name(string req_body);
+
+/* create and store uploaded files */
+void store_file(string dir, string filename, string file_content);
+
+/* list all files under a directory */
+vector<string> list_all_files(string dir);
+
 #endif
