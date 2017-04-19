@@ -14,7 +14,6 @@ public:
   string status;
   map<string, string> headers;
   string body;
-  bool is_login;
 
 public:
   Response(Request req);
@@ -23,6 +22,7 @@ public:
 private:
   void reg(Request req);
   void login(Request req);
+  bool is_already_login(map<string, string> cookies, string &username);
 };
 
 #endif
