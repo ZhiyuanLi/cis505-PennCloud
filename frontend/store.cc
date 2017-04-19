@@ -10,7 +10,7 @@ using namespace std;
 
 void add_user(string username, string password) { users[username] = password; }
 
-bool is_user_exsit(string username) {
+bool is_user_exist(string username) {
   return users.count(username) == 1 ? true : false;
 }
 

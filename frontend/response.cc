@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "constants.h"
-#include "helper.h"
+#include "utils.h"
 #include "request.h"
 #include "response.h"
 #include "store.h"
@@ -90,7 +90,7 @@ void Response::reg(Request req) {
     string username = split(parameter_tokens.at(0), '=').at(1);
     string password = split(parameter_tokens.at(1), '=').at(1);
 
-    if (is_user_exsit(username)) {
+    if (is_user_exist(username)) {
       stringstream ss;
       ss << "<!DOCTYPE html>\n";
       ss << "<html>\n";
