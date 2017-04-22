@@ -17,8 +17,14 @@ Response::Response(Request req) {
   this->http_version = req.http_version;
   (this->headers)[CONNECTION] = "close";
 
+  // static file
+  const char* filename = ("." + req.path).c_str();
+  if (is_file_exist(filename)) {
+      file(filename);
+  }
+
   // register
-  if (req.path == REGISTER_URL) {
+  else if (req.path == REGISTER_URL) {
     reg(req);
   }
 
@@ -245,4 +251,16 @@ void Response::download(Request req) {
   ss << "</body></html>\n";
   this->body = ss.str();
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* display file content */
+void Response::file(const char* filename) {
+    debug(1, "[file exists]: ");
+    debug(1, filename);
+    debug(1, "\r\n");
+    string file_content(get_file_content_as_string(filename));
+    this->status = OK;
+    (this->headers)[CONTENT_TYPE] = "text/plain";
+    this->body = file_content;
+    (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }

@@ -7,7 +7,7 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
-#include <vector>
+#include <streambuf>
 
 #include "utils.h"
 
@@ -96,7 +96,7 @@ vector<string> split(const string &s, char delim) {
 /* extract uploaded file content from request body */
 string extract_file_content(string req_body) {
   req_body = req_body.substr(req_body.find("\r\n\r\n") + 4);
-  return req_body.substr(0, req_body.find("------WebKitFormBoundary") - 1);
+  return req_body.substr(0, req_body.find("------WebKitFormBoundary") - 2);
 }
 
 /* extract uploaded file name from request body */
@@ -127,4 +127,17 @@ vector<string> list_all_files(string dir) {
     closedir(file_dir);
   }
   return files;
+}
+
+/* check if a given file exists */
+bool is_file_exist(const char *filename) {
+    ifstream infile(filename);
+    return infile.good();
+}
+
+/* get file content as string from file name */
+string get_file_content_as_string(const char *filename) {
+    ifstream t(filename);
+    string str((istreambuf_iterator<char>(t)), istreambuf_iterator<char>());
+    return str;
 }
