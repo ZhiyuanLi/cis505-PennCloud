@@ -1,10 +1,10 @@
 /**********************************************************************/
-/* This is the minimal version of the multi-threaded chunk server. 
+/* This is a multi-threaded chunk server with LRU Cache + Virtual Memory. 
  * Implements the idea of key-value store
  * Created April 2017 
  * CIS 505 (Software Systems), Prof. Linh
  * University of Pennsylvania 
- * @version: 04/12/2017 */
+ * @version: 04/24/2017 */
 /**********************************************************************/
 
 #include <stdlib.h>
@@ -14,7 +14,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 #include <bits/stdc++.h>
@@ -26,15 +25,24 @@
 #include <dirent.h>
 #include <time.h>
 #include <map>
-#include <experimental/filesystem>
 #include <bitset>
 #include <sstream>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include "chunkserver.h"
+#include "tools.h"
 
 using namespace std;
+
+/* Initialize chunk info. */
+map<string, vector<int>> chunk_info; // key: virtual memory / checkpointing / metadata (since we'll rewrite checkpointing periodically, thus separate these chunks)
+                                         // value: #0: the # of current chunk (start from chunk 0), 
+                                         //        #1: current chunk size
+
+map<string, vector<vector<int>>> virmem_meta; 
+                                        // key: user
+                                        // value: a sequence of (#chunk, start_idx, length)
 
 /* Keep a record of the active threads. */
 vector<int> active_threads;
@@ -42,6 +50,25 @@ int thread_counter = 0;
 
 /* Whether the option -v is specified. */
 int opt_v = 0;
+
+/* A new chunkserver instance. */
+Chunkserver server(opt_v, MAX_CAPACITY);
+
+void initialize_chunk_info(string key){
+	chunk_info[key].push_back(0);
+	chunk_info[key].push_back(0);
+}
+
+void initialization()
+{
+	initialize_chunk_info("virtual memory");
+	initialize_chunk_info("checkpointing");
+	initialize_chunk_info("metadata");
+
+	create_dir("virtual memory");
+	create_dir("checkpointing");
+	create_dir("metadata");
+}
 
 /* Parse the arguments given by command line. */
 void parse_arguments (int argc, char* argv[], int &port_number, int &opt_a, int &opt_v) {
@@ -161,6 +188,38 @@ void store_incomplete_line(int temp_buf_size, char* &buffer, char* &temp_buffer)
 	temp_buffer[temp_buf_size] = '\0';
 }
 
+string parse_command(char* line)
+{
+	int i = 0;
+	int idx = 0;
+	while(line[i]) {
+		string temp(1, line[i]);
+		if (temp.compare(" ") == 0) {
+			idx = i;
+			break;
+		}
+		i++;
+	}
+
+	if (idx > 0) {
+		char *command = new char[idx + 1];
+		strncpy(command, line, idx);
+		command[idx] = '\0';
+		tolower(command);
+		string c(command);
+		delete [] command;
+		return c;
+	} else {
+		char *command = new char[strlen(line) - 2 + 1];
+		strncpy(command, line, strlen(line) - 2 );
+		command[strlen(line) - 2 ] = '\0';
+		tolower(command);
+		string c(command);
+		delete [] command;
+		return c;
+	}
+	
+}
 
 /* Thread worker deals with 4 commands.*/
 void *worker (void *arg)
@@ -168,10 +227,7 @@ void *worker (void *arg)
 	pthread_detach(pthread_self());
 	int comm_fd = *(int*) arg;
 
-	// A new chunkserver instance
-	Chunkserver server(opt_v);
-
-	/* if option 'v' is given. */
+	// if -v
 	if (opt_v) {
 		fprintf(stderr, "[%d] New connection\n", comm_fd);
 	}
@@ -191,7 +247,7 @@ void *worker (void *arg)
 		int nread = recv(comm_fd, buffer, bufsize - 1, 0);
         buffer[nread]='\0';
 
-		/* If option 'v' is given. */
+		// if -v
 		if (opt_v) {
 			fprintf(stderr, "[%d] C: %s", comm_fd, buffer);
 		}
@@ -223,35 +279,30 @@ void *worker (void *arg)
 				counter = counter - index - 2;
 
 				// Extracts command
-				char *command = new char [5];
-				strncpy(command, line, 4);
-				command[4] = '\0';
-				tolower(command);
-
-				int checkcmd = index - 4;
+				string command = parse_command(line);
 
 				// Executes commands 
-				if(strcmp(command, "vput") == 0) {
-					server.vput(line, comm_fd);
+				if(command.compare("put") == 0) {
+					server.put(line, comm_fd);
 					continue;
 				}
 
-				if(strcmp(command, "vget") == 0) {
-					server.vget(line, comm_fd);
+				if(command.compare("get") == 0) {
+					server.get(line, comm_fd);
 					continue;
 				}
 
-				if(strcmp(command, "cput") == 0) {
+				if(command.compare("cput") == 0) {
 					server.cput(line, comm_fd);
 					continue;
 				}
 
-				if(strcmp(command, "dele") == 0) {
+				if(command.compare("dele") == 0) {
 					server.dele(line, comm_fd);
 					continue;
 				}
 
-				if (strcmp(command, "quit") == 0 && checkcmd == 0) {
+				if(command.compare("quit") == 0) {
 					isQuit = true;
 					continue;
 				}
@@ -283,7 +334,9 @@ int main(int argc, char *argv[])
 	// parse command line arguments
 	parse_arguments(argc, argv, port_number, opt_a, opt_v);
 
-	/* If option 'a' is given. */
+	initialization();
+
+	// if -a
 	if (opt_a) {
 		fprintf(stderr, "Author: CIS 505 T20\r\n");
 		exit(3);
