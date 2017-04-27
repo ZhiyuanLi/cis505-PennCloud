@@ -26,6 +26,7 @@ private:
   void upload(Request req);
   void handle_upload(Request req);
   void download(Request req);
+  void file(const char* filename);
 };
 
 #endif

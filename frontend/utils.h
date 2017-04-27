@@ -33,4 +33,10 @@ void store_file(string dir, string filename, string file_content);
 /* list all files under a directory */
 vector<string> list_all_files(string dir);
 
+/* check if a given file exists */
+bool is_file_exist(const char *fileName);
+
+/* get file content as string from file name */
+string get_file_content_as_string(const char *filename);
+
 #endif
