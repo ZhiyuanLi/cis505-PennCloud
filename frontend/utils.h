@@ -39,4 +39,7 @@ bool is_file_exist(const char *fileName);
 /* get file content as string from file name */
 string get_file_content_as_string(const char *filename);
 
+/* replace all substring in a string */
+void replace_all(string& str, const string& from, const string& to);
+
 #endif

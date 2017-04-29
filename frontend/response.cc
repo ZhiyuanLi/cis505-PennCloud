@@ -73,20 +73,7 @@ void Response::reg(Request req) {
 
   // GET
   if (req.method.compare("GET") == 0) {
-    stringstream ss;
-    ss << "<!DOCTYPE html>\n";
-    ss << "<html>\n";
-    ss << "<head><title>PennCloud</title></head>\n";
-    ss << "<body bgcolor=\"#f0f0f0\">\n<h1 align=\"center\">Register "
-          "Page</h1>\n";
-    ss << "<form method=\"post\">\n";
-    ss << "username: <input type=\"text\" name=\"username\" required><br/>\n";
-    ss << "password: <input type=\"password\" name=\"password\" "
-          "required><br/>\n";
-    ss << "<input type=\"submit\" value=\"Register\"></form>\n";
-    ss << "<a href=\"/login\">Already have an account? Login here!</a>\n";
-    ss << "</body></html>\n";
-    this->body = ss.str();
+    this->body = get_file_content_as_string("html/register.html");
     (this->headers)[CONTENT_LEN] = to_string((this->body).length());
   }
 
@@ -97,35 +84,11 @@ void Response::reg(Request req) {
     string password = split(parameter_tokens.at(1), '=').at(1);
 
     if (is_user_exist(username)) {
-      stringstream ss;
-      ss << "<!DOCTYPE html>\n";
-      ss << "<html>\n";
-      ss << "<head><title>PennCloud</title></head>\n";
-      ss << "<body bgcolor=\"#f0f0f0\">\n<h1 align=\"center\">Register "
-            "Page</h1>\n";
-      ss << "<h2>Username aldready exsits!</h2>\n";
-      ss << "<form method=\"post\">\n";
-      ss << "username: <input type=\"text\" name=\"username\" required><br/>\n";
-      ss << "password: <input type=\"password\" name=\"password\" "
-            "required><br/>\n";
-      ss << "<input type=\"submit\" value=\"Register\"></form>\n";
-      ss << "<a href=\"/login\">Already have an account? Login here!</a>\n";
-      ss << "</body></html>\n";
-      this->body = ss.str();
+      this->body = get_file_content_as_string("html/user-already-exist.html");
       (this->headers)[CONTENT_LEN] = to_string((this->body).length());
     } else { // new user
-      stringstream ss;
-      ss << "<!DOCTYPE html>\n";
-      ss << "<html>\n";
-      ss << "<head><title>PennCloud</title></head>\n";
-      ss << "<body bgcolor=\"#f0f0f0\">\n<h1 align=\"center\">Register "
-            "Page</h1>\n";
-      ss << "<h2>Register successful!</h2>\n";
-      ss << "<form method=\"post\">\n";
-      ss << "<a href=\"/login\">Login here!</a>\n";
-      ss << "</body></html>\n";
       add_user(username, password);
-      this->body = ss.str();
+      this->body = get_file_content_as_string("html/new-user.html");
       (this->headers)[CONTENT_LEN] = to_string((this->body).length());
     }
   }
@@ -141,19 +104,7 @@ void Response::login(Request req) {
 
   // GET
   if (req.method.compare("GET") == 0 && !already_login) {
-    stringstream ss;
-    ss << "<!DOCTYPE html>\n";
-    ss << "<html>\n";
-    ss << "<head><title>PennCloud</title></head>\n";
-    ss << "<body bgcolor=\"#f0f0f0\">\n<h1 align=\"center\">Login Page</h1>\n";
-    ss << "<form method=\"post\">\n";
-    ss << "username: <input type=\"text\" name=\"username\" required><br/>\n";
-    ss << "password: <input type=\"password\" name=\"password\" "
-          "required><br/>\n";
-    ss << "<input type=\"submit\" value=\"Login\"></form>\n";
-    ss << "<a href=\"/register\">New user? Register here!</a>\n";
-    ss << "</body></html>\n";
-    this->body = ss.str();
+    this->body = get_file_content_as_string("html/login.html");
     (this->headers)[CONTENT_LEN] = to_string((this->body).length());
   }
 
@@ -174,11 +125,12 @@ void Response::login(Request req) {
     ss << "<!DOCTYPE html>\n";
     ss << "<html>\n";
     ss << "<head><title>PennCloud</title></head>\n";
-    ss << "<body bgcolor=\"#f0f0f0\">\n<h1 align=\"center\">Hi " << username
-       << "</h1>\n";
+    ss << "<body>\n<h1 align=\"center\">Hi " << username << "</h1>\n";
     ss << "</body></html>\n";
 
     this->body = ss.str();
+    this->body = get_file_content_as_string("html/user-home.html");
+    replace_all(this->body, "$username", username);
     (this->headers)[CONTENT_LEN] = to_string((this->body).length());
     (this->headers)[SET_COOKIE] = "sessionid=" + username;
   }
@@ -199,18 +151,7 @@ bool Response::is_already_login(map<string, string> cookies, string &username) {
 void Response::upload(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
-  stringstream ss;
-  ss << "<!DOCTYPE html>\n";
-  ss << "<html>\n";
-  ss << "<head><title>PennCloud</title></head>\n";
-  ss << "<form action=\"upload\" method=\"POST\" "
-        "enctype=\"multipart/form-data\">\n";
-  ss << "Select file to upload:\n";
-  ss << "<input type=\"file\" name=\"file\" id=\"file\">\n";
-  ss << "<input type=\"submit\" value=\"Upload File\" "
-        "name=\"submit\"></form>\n";
-  ss << "</body></html>\n";
-  this->body = ss.str();
+  this->body = get_file_content_as_string("html/upload.html");
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
@@ -218,6 +159,7 @@ void Response::upload(Request req) {
 void Response::handle_upload(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/plain";
+  // (this->headers)[CONTENT_TYPE] = "application/pdf";
   string dir(UPLOADED_DIR);
   string filename(extract_file_name(req.body));
   this->body = extract_file_content(req.body);
@@ -232,10 +174,6 @@ void Response::download(Request req) {
   string dir(UPLOADED_DIR);
   vector<string> files(list_all_files(dir));
   stringstream ss;
-  ss << "<!DOCTYPE html>\n";
-  ss << "<html>\n";
-  ss << "<head><title>PennCloud</title></head>\n";
-  ss << "<ul>";
   for (vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
     string file_path(dir + *it);
     string saved_filename(*it);
@@ -247,9 +185,9 @@ void Response::download(Request req) {
     ss << *it;
     ss << "</a></li>";
   }
-  ss << "</ul>";
-  ss << "</body></html>\n";
-  this->body = ss.str();
+  string all_download_files = ss.str();
+  this->body = get_file_content_as_string("html/download.html");
+  replace_all(this->body, "$allDownloadFiles", all_download_files);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 

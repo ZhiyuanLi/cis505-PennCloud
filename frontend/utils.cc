@@ -141,3 +141,16 @@ string get_file_content_as_string(const char *filename) {
     string str((istreambuf_iterator<char>(t)), istreambuf_iterator<char>());
     return str;
 }
+
+/* replace all substring in a string */
+void replace_all(string& str, const string& from, const string& to) {
+    if (from.empty()) {
+      return;
+    }
+
+    size_t start_pos = 0;
+    while((start_pos = str.find(from, start_pos)) != string::npos) {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length();
+    }
+}
