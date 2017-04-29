@@ -121,14 +121,6 @@ void Response::login(Request req) {
   }
 
   if (already_login) {
-    stringstream ss;
-    ss << "<!DOCTYPE html>\n";
-    ss << "<html>\n";
-    ss << "<head><title>PennCloud</title></head>\n";
-    ss << "<body>\n<h1 align=\"center\">Hi " << username << "</h1>\n";
-    ss << "</body></html>\n";
-
-    this->body = ss.str();
     this->body = get_file_content_as_string("html/user-home.html");
     replace_all(this->body, "$username", username);
     (this->headers)[CONTENT_LEN] = to_string((this->body).length());
