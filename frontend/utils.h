@@ -22,7 +22,7 @@ string read_line(int fd);
 vector<string> split(const string &s, char delim);
 
 /* extract uploaded file content from request body */
-string extract_file_content(string req_body);
+string extract_file_content(string req_body, int content_length);
 
 /* extract uploaded file name from request body */
 string extract_file_name(string req_body);

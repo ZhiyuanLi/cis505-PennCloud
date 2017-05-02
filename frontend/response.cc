@@ -179,7 +179,7 @@ void Response::handle_upload(Request req) {
   // (this->headers)[CONTENT_TYPE] = "application/pdf";
   string dir(UPLOADED_DIR);
   string filename(extract_file_name(req.body));
-  this->body = extract_file_content(req.body);
+  this->body = extract_file_content(req.body, req.content_length);
   // this->body = get_file_content_as_string("html/redirect-to-download.html");
   store_file(dir, filename, this->body);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());

@@ -66,7 +66,7 @@ Request::Request(int fd) {
 
     // content-length
     if (line.length() >= 16 && line.substr(0, 16) == CONTENT_LEN) {
-      content_length = atoi(line.substr(16).c_str());
+      this->content_length = atoi(line.substr(16).c_str());
     }
 
     // read next line
@@ -74,13 +74,15 @@ Request::Request(int fd) {
   }
 
   // POST message body
-  char buf[50000];
-  if (this->method == "POST" && content_length > 0) {
-    do_read(fd, buf, content_length);
+  // char buf[50000];
+  if (this->method == "POST" && this->content_length > 0) {
+    char* buf = (char*) malloc(sizeof(char) * this->content_length);
+    do_read(fd, buf, this->content_length);
     this->body = string(buf);
     debug(1, "[Request Body]: ");
     debug(1, this->body.c_str());
     debug(1, "\r\n");
+    free(buf);
   }
 
   valid = true;

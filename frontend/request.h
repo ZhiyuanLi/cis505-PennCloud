@@ -11,6 +11,7 @@ public:
   string method;
   string path;
   string http_version;
+  int content_length;
   map<string, string> headers;
   map<string, string> cookies;
   string body;
