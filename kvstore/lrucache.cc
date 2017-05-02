@@ -25,18 +25,19 @@ using namespace std;
 
 #include "lrucache.h"
 #include "node.h"
+#include "parameters.h"
 #include "tools.h"
 
 extern map<string, vector<int>> chunk_info;
-extern map<string, vector<vector<int>>> virmem_meta; 
-// virtual memory part is not finished at this stage, please test with 500M in-memory space
+extern map<string, vector<vector<int>>> virmem_meta;
+extern map<string, vector<vector<int>>> cp_meta;
+extern bool opt_v;
 
-LRUCache::LRUCache(int v, int capacity) {
-    this->opt_v = v;
+LRUCache::LRUCache(int capacity) {
     this->capacity = capacity;
     this->memory_used = 0;
     tail->prev = head;
-    head->next = tail; 
+    head->next = tail;
 }
 
 /* Sends the server message to the client. */
@@ -45,7 +46,19 @@ void LRUCache::servermsg(const char* msg, int comm_fd) {
 
     // if -v
     if (opt_v) {
+        print_time();
         fprintf(stderr, "[%d] S: %s", comm_fd, msg);
+    }
+}
+
+/* If -v, show memory status. */
+void LRUCache::print_memory_status(int value_size, int comm_fd) {
+
+    string memory_status = "Memory used: " + to_string(memory_used) + " Value size: " + to_string(value_size) + " Capacity: " + to_string(capacity);
+    
+    if (opt_v) {
+        print_time();
+        fprintf(stderr, "[%d] S: %s\n", comm_fd, memory_status.c_str());
     }
 }
 
@@ -56,90 +69,211 @@ void LRUCache::move_to_tail(Node *current) {
     current->next = tail;
 }
 
-void LRUCache::update_virmem_metadata(string user, string str, int size) {
-    string dest = "virtual memory/chunk" + to_string(chunk_info["virtual memory"].at(0));
-    write_file(dest, str);
-    vector<int> record;
-    record.push_back(chunk_info["virtual memory"].at(0)); // #chunk 
-    record.push_back(chunk_info["virtual memory"].at(1)); // start index
-    record.push_back(size); // length
-    virmem_meta[user].push_back(record);
-    chunk_info["virtual memory"].at(1) += size;
+void LRUCache::clear_metadata(string type, string user) {
+
+    if (type.compare("virtual memory") == 0) {
+        virmem_meta.erase(user);
+    }
+
+    if (type.compare("checkpointing") == 0) {
+        cp_meta.erase(user);
+    } 
 }
 
-int LRUCache::write_lru_user_to_disk(Node *lru_user) {
-    string user = lru_user->key;
-    string row = user + ",";
+void LRUCache::update_metadata(string type, string user, string str, int size) {
+    string dest = type + "/chunk" + to_string(chunk_info[type].at(0));
+    write_file(dest, str);
+    vector<int> record;
+    record.push_back(chunk_info[type].at(0)); // #chunk
+    record.push_back(chunk_info[type].at(1)); // start index
+    record.push_back(size); // length
+
+    if (type.compare("virtual memory") == 0) {
+        virmem_meta[user].push_back(record);
+    }
+
+    if (type.compare("checkpointing") == 0) {
+        cp_meta[user].push_back(record);
+    } 
+
+    chunk_info[type].at(1) += size;
+}
+
+int LRUCache::format_node(Node *user_node, string &row) {   
     int value_size = 0;
-    for (map<string, string>::iterator it = lru_user->value.begin(); it != lru_user->value.end(); ++it) {
+    for (map<string, string>::iterator it = user_node->value.begin(); it != user_node->value.end(); ++it) {
         string line = it->first + "," + it->second + ","; // value should be binary here, easy to parse with comma when read back to memory
         row += line;
         value_size += it->second.size();
     }
-    if (CHUNK_SIZE - chunk_info["virtual memory"].at(1) >= row.size()) {    
-        update_virmem_metadata(user, row, row.size());    
+    return value_size;
+}
+
+void LRUCache::write_to_chunk(string user, string row, string type) { //options for type: virtual memory / checkpointing
+    
+    // clear the existent meta first
+    clear_metadata(type, user);
+
+    // update meta
+    if (CHUNK_SIZE - chunk_info[type].at(1) >= row.size()) {
+        update_metadata(type, user, row, row.size());
     } else {
         // how many chunks needed
-        int current_chunk_left = CHUNK_SIZE - chunk_info["virtual memory"].at(1);
+        int current_chunk_left = CHUNK_SIZE - chunk_info[type].at(1);
         int chunk_needed = ceil(float(row.size() - current_chunk_left) / float(CHUNK_SIZE)) + 1;
         int start = 0;
         for (int i = 0; i < chunk_needed; i++) {
             if (i == 0) {
                 string temp = row.substr(start, current_chunk_left);
-                update_virmem_metadata(user, temp, current_chunk_left);
+                update_metadata(type, user, temp, current_chunk_left);
                 start = current_chunk_left;
             } else if (i == chunk_needed - 1) {
                 string temp = row.substr(start, row.size() - start);
-                chunk_info["virtual memory"].at(0) += 1;
-                update_virmem_metadata(user, temp, row.size() - start);
+                chunk_info[type].at(0) += 1;
+                update_metadata(type, user, temp, row.size() - start);
             } else {
                 string temp = row.substr(start, CHUNK_SIZE);
-                chunk_info["virtual memory"].at(0) += 1;
-                update_virmem_metadata(user, temp, CHUNK_SIZE);
+                chunk_info[type].at(0) += 1;
+                update_metadata(type, user, temp, CHUNK_SIZE);
                 start += CHUNK_SIZE;
             }
         }
-    } 
-    return value_size;
+    }
 }
 
-void LRUCache::use_virtual_memory() {
+void LRUCache::use_virtual_memory() { 
     Node *lru_user = head->next;
-    int size = write_lru_user_to_disk(lru_user);
+    string row = "";
+    int size = format_node(lru_user, row);
+    write_to_chunk(lru_user->key, row, "virtual memory");
     tablets.erase(head->next->key);
     head->next = head->next->next;
     head->next->prev = head;
     memory_used -= size;
 }
 
-bool LRUCache::put_helper(string user, string filename, string value, int comm_fd) {
+void LRUCache::restore_user(string user, string s, int comm_fd) {
+    string delimiter = ",";  // fn_value string is ended with ","
+    int counter = 0;
+
+    size_t pos = 0;
+    string token;
+    string filename;
+    string value;
+    while ((pos = s.find(delimiter)) != string::npos) {
+        counter += 1;
+        if (counter % 2 != 0) {
+            filename = s.substr(0, pos);
+        } else {
+            value = s.substr(0, pos);
+            put(user, filename, value, comm_fd, false);
+        }
+        s.erase(0, pos + delimiter.length());
+    }
+}
+
+void LRUCache::load_user_from_disk(string type, string user, int comm_fd) {
+
+    // extract info from metadata, then delete this user from meta so that he can be inserted as a new user
+    vector<vector<int>> user_meta;
+
+    if (type.compare("virtual memory") == 0) {
+        user_meta = virmem_meta[user];
+        map<string,vector<vector<int>>>::iterator it = virmem_meta.find(user);
+        virmem_meta.erase(it);
+    }
+
+    if (type.compare("checkpointing") == 0) {
+        user_meta = cp_meta[user];
+        map<string,vector<vector<int>>>::iterator it = cp_meta.find(user);
+        cp_meta.erase(it);
+    }
+     
+    string fn_value;
+    for (int i = 0; i < user_meta.size(); i++) {
+        vector<int> temp = user_meta.at(i);
+        int chunk_id = temp.at(0);
+        int start = temp.at(1);
+        int length = temp.at(2);
+        string path;
+        if (type.compare("virtual memory") == 0) {
+            path = "virtual memory/chunk" + to_string(chunk_id);
+        }
+        if (type.compare("checkpointing") == 0) {
+            path = "checkpointing/chunk" + to_string(chunk_id);
+        }
+        
+        ifstream file(path);
+        string s;
+        if(file.is_open()) {
+            file.seekg(start);
+            s.resize(length);
+            file.read(&s[0], length);
+        }
+        fn_value += s;
+    }
+    restore_user(user, fn_value, comm_fd);
+}
+
+bool LRUCache::put_helper(string user, string filename, string value, int comm_fd, bool external, bool isCPUT) {
+
+    print_memory_status(value.size(), comm_fd);
+
+	//check single user size
+	if (external || isCPUT) {
+		if (user_size[user] + value.size() >= capacity) {
+	        const char* feedback = "-ERR Your storage exceeds node capacity\r\n";
+	        servermsg(feedback, comm_fd);
+	        return true;
+		}
+	}
 
     if (memory_used + value.size() <= capacity) {
 
-        bool isNotInMemory = tablets.find(user) == tablets.end();
-        bool isNotInVirMem = virmem_meta.find(user) == virmem_meta.end();
+        bool isNotInMemory = (tablets.find(user) == tablets.end());
+        bool isNotInVirMem = (virmem_meta.find(user) == virmem_meta.end());
 
-        if (isNotInMemory && isNotInVirMem) {  // check both in-memory and virtual memory
-            Node *insert = new Node(user); // user not exists
+        // user not exists
+        if (isNotInMemory && isNotInVirMem) {
+            Node *insert = new Node(user);
             insert->value[filename] = value;
             tablets[user] = insert;
             move_to_tail(insert);
+        }
 
-        } 
-
+        // user in memory
         if (!isNotInMemory) {
-            tablets[user]->value[filename] += value; 
-            move_to_tail(tablets[user]);          
+            if (isCPUT) {
+                tablets[user]->value[filename] = value;  // rewrite
+            } else {
+                tablets[user]->value[filename] += value; // append
+            }
+            move_to_tail(tablets[user]);
         }
 
+        // uesr in virtual memory
         if (!isNotInVirMem) {
-            //TODO: read from chunk based on metadata, update virmem_meta, delete on disk, store in temp in memory with new value
-            //then, call put: put will write other user into disk   
+            load_user_from_disk("virtual memory", user, comm_fd); // but not delete this info in the disk cuz file tranlation, better to have another process handling disk space management issue.
+            tablets[user]->value[filename] += value;
+            move_to_tail(tablets[user]);
         }
 
+        // update used memory
         memory_used += value.size();
-        const char* feedback = "+OK Value stored\r\n";
-        servermsg(feedback, comm_fd);
+
+        if (external || isCPUT) {
+        	user_size[user] += value.size();
+        }
+
+        if (external) {
+            if (isCPUT) {
+                const char* feedback = "+OK New value stored\r\n";
+                servermsg(feedback, comm_fd);
+            } else {
+                const char* feedback = "+OK Value stored\r\n";
+                servermsg(feedback, comm_fd);
+            }           
+        }
         return true;
     }
     return false;
@@ -147,7 +281,14 @@ bool LRUCache::put_helper(string user, string filename, string value, int comm_f
 
 bool LRUCache::get_helper(string user, string filename, string &value, int comm_fd) {
 
-    if (tablets.find(user) != tablets.end()) {
+    bool isInMemory = (tablets.find(user) != tablets.end());
+    bool isInVirMem = (virmem_meta.find(user) != virmem_meta.end());
+
+    if (isInMemory || isInVirMem) {
+
+        if (isInVirMem) {
+            load_user_from_disk("virtual memory", user, comm_fd);
+        }
 
         // remove current
         Node *current = tablets[user];
@@ -158,7 +299,7 @@ bool LRUCache::get_helper(string user, string filename, string &value, int comm_
         move_to_tail(current);
 
         if (tablets[user]->value.find(filename) != tablets[user]->value.end()) {
-            value = current->value[filename];
+            value = tablets[user]->value[filename];
             return true;
 
         } else {
@@ -174,8 +315,13 @@ bool LRUCache::get_helper(string user, string filename, string &value, int comm_
     }
 }
 
-void LRUCache::put(string user, string filename, string value, int comm_fd) {
-    while (!put_helper(user, filename, value, comm_fd)) {
+void LRUCache::put(string user, string filename, string value, int comm_fd, bool external) {
+    if (value.size() > capacity) {
+        const char* feedback = "-ERR File size exceeds node capacity\r\n";
+        servermsg(feedback, comm_fd);
+        return;
+    }
+    while (!put_helper(user, filename, value, comm_fd, external, false)) {
         use_virtual_memory();
     }
 }
@@ -189,6 +335,7 @@ void LRUCache::get(string user, string filename, int comm_fd) {
 
         // If -v
         if (opt_v) {
+            print_time();
             fprintf(stderr, "[%d] S: %s", comm_fd, value_read.c_str());
         }
     }
@@ -198,9 +345,9 @@ void LRUCache::cput(string user, string filename, string old_value, string new_v
     string value_read;
     if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
         if (value_read.compare(old_value) == 0) {
-            tablets[user]->value[filename] = new_value;
-            const char* feedback = "+OK New value stored\r\n";
-            servermsg(feedback, comm_fd);
+        	user_size[user] -= old_value.size();
+            memory_used -= old_value.size();
+            put_helper(user, filename, new_value, comm_fd, true, true);
         } else {
             const char* versioncheckfail = "-ERR Version check fail\r\n";
             servermsg(versioncheckfail, comm_fd);
@@ -211,8 +358,15 @@ void LRUCache::cput(string user, string filename, string old_value, string new_v
 void LRUCache::dele(string user, string filename, int comm_fd) {
     string value_read;
     if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
+    	user_size[user] -= tablets[user]->value[filename].size();
+        memory_used -= tablets[user]->value[filename].size();
         tablets[user]->value.erase(filename);
         const char* successmsg = "+OK File deleted\r\n";
         servermsg(successmsg, comm_fd);
+
+        // delete the node of empty user
+        if (tablets[user]->value.size() == 0) {
+            tablets.erase(user);
+        }
     }
 }

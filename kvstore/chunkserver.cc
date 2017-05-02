@@ -22,17 +22,20 @@
 
 #include "chunkserver.h"
 #include "lrucache.h"
+#include "node.h"
+#include "parameters.h"
 #include "tools.h"
 
 using namespace std;
 
 extern map<string, vector<int>> chunk_info;
 extern map<string, vector<vector<int>>> virmem_meta;
+extern map<string, vector<vector<int>>> cp_meta;
+extern bool opt_v;
 
-Chunkserver::Chunkserver(int v, int capacity) {  //TODO: 1. need a timer for each chunkserver to do checkpointing periodically
-	this->opt_v = v;							 //		 2. locking for multi-threaded writing
-	this->capacity = capacity;  // for now: only calculate the size of value
-	this->lru = new LRUCache(v, capacity);
+Chunkserver::Chunkserver(int capacity) {               //TODO: 1. need a timer for each chunkserver to do checkpointing periodically								 
+	this->capacity = capacity;                         //	   2. locking for multi-threaded writing
+	this->lru = new LRUCache(MEMORY_CAPACITY);               
 }
 
 /* Sends the ERROR message to the client. */
@@ -42,6 +45,7 @@ void Chunkserver::error(int comm_fd) {
 
 	// If -v
 	if (opt_v) {
+		print_time();
 		fprintf(stderr, "[%d] S: %s", comm_fd, errormsg);
 	}
 }
@@ -60,6 +64,194 @@ void Chunkserver::parse_line(string s, vector<string> &arguments, int num_of_arg
     arguments.push_back(s);
 }
 
+void Chunkserver::write_cp_meta() {
+	string meta = "";
+	for (auto it: cp_meta) {
+		vector<vector<int>> temp = cp_meta[it.first];
+		string user = "@" + it.first + ";";
+		meta += user;
+		for (int i = 0; i < temp.size(); i++) {
+			string s = to_string(temp.at(i).at(0)) + "," 
+			         + to_string(temp.at(i).at(1)) + "," 
+			         + to_string(temp.at(i).at(2)) + ";";
+			meta += s;
+		}
+    }
+    write_file("metadata/cp_meta", meta);
+}
+
+void Chunkserver::write_virmem_meta() {
+	string meta = "";
+	for (auto it: virmem_meta) {
+		vector<vector<int>> temp = cp_meta[it.first];
+		string user = "@" + it.first + ";";
+		meta += user;
+		for (int i = 0; i < temp.size(); i++) {
+			string s = to_string(temp.at(i).at(0)) + "," 
+			         + to_string(temp.at(i).at(1)) + "," 
+			         + to_string(temp.at(i).at(2)) + ";";
+			meta += s;
+		}
+    }
+    write_file("metadata/virmem_meta", meta);
+}
+
+void Chunkserver::write_chunk_info() {
+	string meta = to_string(chunk_info["checkpointing"].at(0)) + "," 
+	            + to_string(chunk_info["checkpointing"].at(1)) + ","
+				+ to_string(chunk_info["virtual memory"].at(0)) + "," 
+				+ to_string(chunk_info["virtual memory"].at(1)) + ","
+				+ to_string(lru->memory_used);
+	write_file("metadata/chunk_info", meta);
+}
+
+void Chunkserver::write_user_size() {
+	string meta = "";
+	for (auto it: lru->user_size) {
+		string s = it.first + "," + to_string(lru->user_size[it.first]) + ",";
+		meta += s;	
+    }
+    write_file("metadata/user_size", meta);
+}
+
+vector<int> Chunkserver::rebuild_vector(string s) {
+	vector<int> v;
+	string delimiter = ",";  
+
+    size_t pos = 0;
+    string user;
+    while ((pos = s.find(delimiter)) != string::npos) {
+    	v.push_back(stoi(s.substr(0, pos)));
+    	s.erase(0, pos + delimiter.length());
+    }
+    v.push_back(stoi(s));
+    return v;
+}
+
+void Chunkserver::parse_meta(string s, string type) {
+	string delimiter = ";";  
+    int counter = 0;
+
+    size_t pos = 0;
+    string user;
+    while ((pos = s.find(delimiter)) != string::npos) {
+    	if (counter == 0) {
+    		user = s.substr(0, pos);
+    	} else {
+    		vector<int> record = rebuild_vector(s.substr(0, pos));
+
+    		if (type.compare("virtual memory") == 0) {
+		        virmem_meta[user].push_back(record);
+		    }
+
+		    if (type.compare("checkpointing") == 0) {
+		        cp_meta[user].push_back(record);
+		    } 
+    	}
+        s.erase(0, pos + delimiter.length());
+        counter ++;
+    }
+}
+
+void Chunkserver::load_cp_vm_meta(string path, string type) {
+	string s = read_file(path);
+	string delimiter = "@";  
+    int counter = 0;
+
+    size_t pos = 0;
+    string token;
+    while ((pos = s.find(delimiter)) != string::npos) {
+    	if (counter != 0) {
+    		parse_meta(s.substr(0, pos), type); 
+    	}
+        s.erase(0, pos + delimiter.length());
+        counter ++;
+    }
+    parse_meta(s, type); 
+}
+
+void Chunkserver::load_chunk_info() {
+	string s = read_file("metadata/chunk_info");
+	string delimiter = ","; 
+    int counter = 0;
+
+    size_t pos = 0;
+    while ((pos = s.find(delimiter)) != string::npos) {
+    	if (counter == 0 || counter == 1) {
+    		chunk_info["checkpointing"].push_back(stoi(s.substr(0, pos)));
+    	}
+        
+        if (counter == 2 || counter == 3) {
+    		chunk_info["virtual memory"].push_back(stoi(s.substr(0, pos)));
+    	}
+    	
+        s.erase(0, pos + delimiter.length());
+        counter ++;
+    }
+    lru->memory_used = stoi(s);
+}
+
+void Chunkserver::load_user_size() {
+	string s = read_file("metadata/user_size");
+	string delimiter = ","; 
+    int counter = 0;
+
+    size_t pos = 0;
+    string user;
+    while ((pos = s.find(delimiter)) != string::npos) {
+    	counter += 1;
+    	if (counter % 2 != 0) {
+    		user = s.substr(0, pos);
+    	} else {
+    		lru->user_size[user] = stoi(s.substr(0, pos));
+    	}
+        s.erase(0, pos + delimiter.length());
+    }
+}
+
+/* Write checkpointing from memory to disk. */
+void Chunkserver::checkpointing() {
+
+	// empty previous checkpointing and log	
+	clear_dir("checkpointing/");
+	clear_dir("metadata/");
+	string log("log");
+	remove(log.c_str());
+
+	// write in-memory user into disk
+	for (auto it: lru->tablets) {
+		Node *user = lru->tablets[it.first];
+		string row = "";
+	    lru->format_node(user, row);
+	    lru->write_to_chunk(user->key, row, "checkpointing");
+    }
+
+	// write metadata into disk
+	write_cp_meta();
+	write_virmem_meta();
+	write_chunk_info();
+	write_user_size();
+}
+
+/* Load checkpointing from disk to memory. */
+void Chunkserver::load_checkpointing() {
+
+	// load metadata
+	load_cp_vm_meta("metadata/cp_meta", "checkpointing");
+	load_cp_vm_meta("metadata/virmem_meta", "virtual memory");
+	load_chunk_info();
+	load_user_size();
+
+	// load user files
+	int count = 0;
+	for (auto &it: cp_meta) {
+		if (count == cp_meta.size()) break;
+		string user = it.first;
+	    lru->load_user_from_disk("checkpointing", user, 1);
+	    count += 1;
+    }
+}
+
 void Chunkserver::write_log(char* request) { //TODO: force write
 	string dest = "log";
 	ofstream ofs;
@@ -69,14 +261,6 @@ void Chunkserver::write_log(char* request) { //TODO: force write
 } 
 
 void Chunkserver::replay_log() {
-
-}
-
-void Chunkserver::checkpointing() { 
-	
-}
-
-void Chunkserver::load_checkpointing() {
 
 }
 
@@ -94,7 +278,7 @@ void Chunkserver::put(char* &line, int comm_fd) {
 		string user = rcv.at(0);
 		string filename = rcv.at(1);
 		string value = rcv.at(2);
-		lru->put(user, filename, value, comm_fd);
+		lru->put(user, filename, value, comm_fd, true);
 		write_log(line);
 	} else {
 		error(comm_fd);

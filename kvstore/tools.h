@@ -7,16 +7,11 @@
 
 using namespace std;
 
-/* Assume that storage space for a single user cannot exceed this max capacity. */
-long long static MAX_CAPACITY = 500 * 1024 * 1024;
-
-long long static CHUNK_SIZE = 64 * 1024 * 1024;
-
 void write_file(string dest, char* value);
 
 void write_file(string dest, string value);
 
-string read_file(string user, string filename);
+string read_file(string path);
 
 void rewrite_file(string user, string filename, string value);
 
@@ -32,6 +27,10 @@ bool check_file(string filename, vector<string> files, int num_of_files);
 
 void delete_file(string user, string filename, int comm_fd);
 
-void read_directory(string user, vector<string> &files, int &num_of_files);
+void read_dir(string user, vector<string> &files, int &num_of_files);
+
+void clear_dir(string directory);
+
+void print_time();
 
 #endif

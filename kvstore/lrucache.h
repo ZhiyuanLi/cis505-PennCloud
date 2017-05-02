@@ -13,28 +13,35 @@ using namespace std;
 class LRUCache {
 
 public:
-    int opt_v;
     int capacity;
     int memory_used;
     Node *head = new Node();
     Node *tail = new Node();
-    map<string, Node*> tablets;
+    map<string, Node*> tablets; // key: user (in memory)
+                                // value: (filename, value) pairs
+    map<string, int> user_size; // key: user (both in memory and virtual memory)
+                                // value: user size
     
 public:
-    LRUCache(int v, int capacity);   
-    void put(string user, string filename, string value, int comm_fd);
+    LRUCache(int capacity);   
+    void put(string user, string filename, string value, int comm_fd, bool external);
     void get(string user, string filename, int comm_fd);
     void cput(string user, string filename, string old_value, string new_value, int comm_fd);
     void dele(string user, string filename, int comm_fd);
     void servermsg(const char* msg, int comm_fd);
+    int format_node(Node *user_node, string &row);  
+    void write_to_chunk(string user, string row, string type);
+    void load_user_from_disk(string type, string user, int comm_fd);
 
 private:
     void move_to_tail(Node *current);
-    bool put_helper(string user, string filename, string value, int comm_fd);
+    bool put_helper(string user, string filename, string value, int comm_fd, bool external, bool isCPUT);
     bool get_helper(string user, string filename, string &value, int comm_fd);
-    void update_virmem_metadata(string user, string str, int size);
-    int write_lru_user_to_disk(Node *lru_user);
+    void clear_metadata(string type, string user);
+    void update_metadata(string type, string user, string str, int size);   
     void use_virtual_memory();
+    void restore_user(string user, string s, int comm_fd);    
+    void print_memory_status(int value_size, int comm_fd);
     
 };
 

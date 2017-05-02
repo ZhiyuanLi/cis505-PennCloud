@@ -17,6 +17,7 @@
 #include <sstream>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include "tools.h"
 
@@ -41,9 +42,8 @@ void write_file(string dest, string value)
 }
 
 /* Read file contents to a string. */
-string read_file(string user, string filename)
+string read_file(string path)
 {
-	string path = "storage/" + user + "/" + filename;
 	string content;
 	string line;
 	ifstream myfile (path);
@@ -129,18 +129,16 @@ bool check_file(string filename, vector<string> files, int num_of_files)
 }
 
 /* Delete the file. */
-void delete_file(string user, string filename, int comm_fd)
+void delete_file(string filename)
 {
-	string path = "storage/" + user + "/" + filename;
-	if(remove(path.c_str()) != 0 ) {
+	if(remove(filename.c_str()) != 0 ) {
 	 	cout << "-ERR Delete failed" << endl;
 	} else {
 	 	cout << "+OK File deleted" << endl;
 	}
 }
 
-void read_directory(string user, vector<string> &files, int &num_of_files)
-{
+void read_dir(string user, vector<string> &files, int &num_of_files) {
 	string directory = "storage/" + user;
 	DIR *dir;
 	struct dirent *ent;
@@ -160,4 +158,32 @@ void read_directory(string user, vector<string> &files, int &num_of_files)
 	  fprintf(stderr, "Unable to open the directory\n");
 	  exit(-1);
 	}
+}
+
+void clear_dir(string directory) {  // directory example: "kvstore/virtual memory/"
+	DIR *dir;
+	struct dirent *ent;
+
+	if ((dir = opendir (directory.c_str())) != NULL) {
+		while ((ent = readdir (dir)) != NULL) {
+			if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+				continue;
+			}
+			string filename(ent->d_name);
+			string path = directory + filename;
+			remove(path.c_str());
+		}
+		closedir (dir);
+	}
+}
+
+void print_time() { 
+    timeval curTime;
+    gettimeofday(&curTime, NULL);
+    int micro = curTime.tv_usec;
+
+    char buffer [80];
+    strftime(buffer, 80, "%H:%M:%S", localtime(&curTime.tv_sec));
+
+    fprintf(stderr, "%s.%06d ", buffer, micro);
 }

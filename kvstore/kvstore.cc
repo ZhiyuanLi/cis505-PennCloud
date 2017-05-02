@@ -4,7 +4,7 @@
  * Created April 2017 
  * CIS 505 (Software Systems), Prof. Linh
  * University of Pennsylvania 
- * @version: 04/24/2017 */
+ * @version: 05/01/2017 */
 /**********************************************************************/
 
 #include <stdlib.h>
@@ -31,64 +31,95 @@
 #include <sys/stat.h>
 
 #include "chunkserver.h"
+#include "parameters.h"
 #include "tools.h"
 
 using namespace std;
 
-/* Initialize chunk info. */
-map<string, vector<int>> chunk_info; // key: virtual memory / checkpointing / metadata (since we'll rewrite checkpointing periodically, thus separate these chunks)
-                                         // value: #0: the # of current chunk (start from chunk 0), 
-                                         //        #1: current chunk size
+/* Node identity: Primary or Secondary. */
+bool isPrimary = true;
 
-map<string, vector<vector<int>>> virmem_meta; 
-                                        // key: user
-                                        // value: a sequence of (#chunk, start_idx, length)
+map<string, vector<int>> chunk_info;           // key: virtual memory / checkpointing (since we'll rewrite checkpointing periodically, thus separate these chunks)
+                                               // value: #0: the # of current chunk (start from chunk 0), 
+                                               //        #1: current chunk size
+
+map<string, vector<vector<int>>> virmem_meta;  // key: user (in virtual memory)
+                                               // value: a sequence of (#chunk, start_idx, length) 
+
+map<string, vector<vector<int>>> cp_meta;      // key: user (in memory) when checkpointing
+                                               // value: a sequence of (#chunk, start_idx, length) 
+
+
+/* Keep a record of the space left. */
+long long space_left = NODE_CAPACITY;
 
 /* Keep a record of the active threads. */
 vector<int> active_threads;
 int thread_counter = 0;
 
-/* Whether the option -v is specified. */
-int opt_v = 0;
+/* Command line arguments. */
+int port_number = 4711;                        // default port number
+bool opt_a = false;                            // output author
+bool opt_v = false;                            // verbose mode
+bool opt_n = false;                            // brand new storage node with no existent chunks
 
 /* A new chunkserver instance. */
-Chunkserver server(opt_v, MAX_CAPACITY);
+Chunkserver server(NODE_CAPACITY);
 
 void initialize_chunk_info(string key){
 	chunk_info[key].push_back(0);
 	chunk_info[key].push_back(0);
 }
 
-void initialization()
-{
-	initialize_chunk_info("virtual memory");
-	initialize_chunk_info("checkpointing");
-	initialize_chunk_info("metadata");
-
+void initialization() {
 	create_dir("virtual memory");
 	create_dir("checkpointing");
 	create_dir("metadata");
+
+	if (opt_n) {                         // pay attention to relative path here
+		clear_dir("virtual memory/");    // assume you are in the folder where these directories live
+		clear_dir("checkpointing/");
+		clear_dir("metadata/");
+		initialize_chunk_info("virtual memory");
+		initialize_chunk_info("checkpointing");
+	} else {
+		// If this is not the very first time that this machine is activated as storage node,
+		// have to do the following crash recovery:
+
+		// load checkpointing
+		server.load_checkpointing();
+
+		// replay log
+	}	
 }
 
 /* Parse the arguments given by command line. */
-void parse_arguments (int argc, char* argv[], int &port_number, int &opt_a, int &opt_v) {
+void parse_arguments (int argc, char* argv[]) {
 	int index;
 	int c;
 	opterr = 0;
-	while ((c = getopt (argc, argv, "avp:")) != -1)
+	while ((c = getopt (argc, argv, "avi:p:n")) != -1)
 	    switch (c)
 	      {
+	      case 'a':
+	    	opt_a = true;
+	    	break;
+	      case 'v':
+	      	opt_v = true;
+	      	break;
+	      case 'i':
+	      	if (strcmp(optarg, "P") == 0) isPrimary = true;
+	    	else if(strcmp(optarg, "S") == 0) isPrimary = false;
+	    	else fprintf (stderr, "Please choose node indentity from P/S.\n");
+	        break;
 	      case 'p':
 	    	port_number = atoi(optarg);
 	        break;
-	      case 'a':
-	    	opt_a = 1;
-	    	break;
-	      case 'v':
-	      	opt_v = 1;
+	      case 'n':
+	      	opt_n = true;
 	      	break;
 	      case '?':
-	        if (optopt == 'p')
+	        if (optopt == 'p' || optopt == 'i')
 	          fprintf (stderr, "Option -%c requires an argument.\n", optopt);
 	        else if (isprint (optopt))
 	          fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -221,14 +252,29 @@ string parse_command(char* line)
 	
 }
 
+/* This thread worker does checkpointing periodically. */
+void *cp_worker (void *arg) {
+
+	while (true) {
+		sleep(CP_INTERVAL);              
+		server.checkpointing();
+
+		// If -v
+		if (opt_v) {
+			print_time();
+			cout << "Checkpointing starts" << endl;
+		}
+	}
+}
+
 /* Thread worker deals with 4 commands.*/
-void *worker (void *arg)
-{
+void *worker (void *arg) {
 	pthread_detach(pthread_self());
 	int comm_fd = *(int*) arg;
 
 	// if -v
 	if (opt_v) {
+		print_time();
 		fprintf(stderr, "[%d] New connection\n", comm_fd);
 	}
 
@@ -249,6 +295,7 @@ void *worker (void *arg)
 
 		// if -v
 		if (opt_v) {
+			print_time();
 			fprintf(stderr, "[%d] C: %s", comm_fd, buffer);
 		}
 
@@ -329,10 +376,8 @@ void *worker (void *arg)
 /* Main function. */
 int main(int argc, char *argv[])
 {
-	int port_number = 4711;
-	int opt_a = 0;
 	// parse command line arguments
-	parse_arguments(argc, argv, port_number, opt_a, opt_v);
+	parse_arguments(argc, argv);
 
 	initialization();
 
@@ -365,7 +410,7 @@ int main(int argc, char *argv[])
 	// Puts a socket into the listening state
 	listen(listen_fd, 10);
 
-	while(true) {
+	while (true) {
 		struct sockaddr_in clientaddr;
 		socklen_t clientaddrlen = sizeof(clientaddr);
 
@@ -396,6 +441,10 @@ int main(int argc, char *argv[])
 		s = pthread_create(&signal_thread, NULL, &sig_thread, (void *) &set);
 		if (s != 0)
 		    handle_error_en(s, "pthread_create");
+
+		// Creates a signal thread to deal with checkpointing
+		pthread_t cp_thread;
+		pthread_create(&cp_thread, NULL, cp_worker, fd);
 
 		// Dispatch tasks to multiple threads
 		pthread_t thread;

@@ -6,8 +6,8 @@
 Node::Node(string key) {
     prev = NULL;
     next = NULL;
-    this->key = key;
-    map<string, string> value;
+    this->key = key; // user 
+    map<string, string> value; //key:filename, value: value
     this->value = value;
 }
 
