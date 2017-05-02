@@ -78,7 +78,7 @@ Request::Request(int fd) {
   if (this->method == "POST" && content_length > 0) {
     do_read(fd, buf, content_length);
     this->body = string(buf);
-    debug(1, "[Body]: ");
+    debug(1, "[Request Body]: ");
     debug(1, this->body.c_str());
     debug(1, "\r\n");
   }

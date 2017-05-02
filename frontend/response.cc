@@ -20,7 +20,7 @@ Response::Response(Request req) {
   // static file
   const char* filename = ("." + req.path).c_str();
   if (is_file_exist(filename)) {
-      file(filename);
+    file(filename);
   }
 
   // register
@@ -43,8 +43,33 @@ Response::Response(Request req) {
   }
 
   // download
-  else if (req.path == DOWNLOAD_URL) {
+  else if (req.path.length() >= 9 && req.path.substr(0, 9) == DOWNLOAD_URL) {
     download(req);
+  }
+
+  // create new folder
+  else if (req.path == NEW_FOLDER_URL) {
+    create_new_folder(req);
+  }
+
+  // rename file
+  else if (req.path == RENAME_FILE_URL) {
+    rename_file(req);
+  }
+
+  // delete file
+  else if (req.path == DELETE_FILE_URL) {
+    delete_file(req);
+  }
+
+  // delete folder
+  else if (req.path == DELETE_FOLDER_URL) {
+    delete_folder(req);
+  }
+
+  // move file
+  else if (req.path == MOVE_FILE_URL) {
+    move_file(req);
   }
 }
 
@@ -155,6 +180,7 @@ void Response::handle_upload(Request req) {
   string dir(UPLOADED_DIR);
   string filename(extract_file_name(req.body));
   this->body = extract_file_content(req.body);
+  // this->body = get_file_content_as_string("html/redirect-to-download.html");
   store_file(dir, filename, this->body);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
@@ -164,23 +190,66 @@ void Response::download(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   string dir(UPLOADED_DIR);
+  string curr_folder(req.path.substr(9));
   vector<string> files(list_all_files(dir));
-  stringstream ss;
-  for (vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
-    string file_path(dir + *it);
-    string saved_filename(*it);
-    debug(1, "[download filepath]: ");
-    debug(1, file_path.c_str());
-    debug(1, "\r\n");
-    ss << "<li><a href=\"" << file_path;
-    ss << "\" download=\"" << saved_filename << "\">";
-    ss << *it;
-    ss << "</a></li>";
+  stringstream ss_file;
+  stringstream ss_folder;
+
+  if (curr_folder.length() > 0) {
+    // remove "/"
+    curr_folder = curr_folder.substr(1);
+    for (vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
+      string file_path(dir + *it);
+      string saved_filename(*it);
+      if ((*it).find(curr_folder + "+") != string::npos) {
+        int slash = (*it).find("+");
+        saved_filename = saved_filename.substr(slash + 1);
+        if (*it == curr_folder + "+" + saved_filename) {
+          ss_file << "<a href=\"" << file_path;
+          ss_file << "\" class=\"list-group-item\" download=\"";
+          ss_file << saved_filename << "\">";
+          ss_file << saved_filename;
+          ss_file << "</a>";
+        }
+      }
+    }
+
+    this->body = get_file_content_as_string("html/download-subfolder.html");
+    string all_download_files = ss_file.str();
+    replace_all(this->body, "$allDownloadFiles", all_download_files);
+    (this->headers)[CONTENT_LEN] = to_string((this->body).length());
   }
-  string all_download_files = ss.str();
-  this->body = get_file_content_as_string("html/download.html");
-  replace_all(this->body, "$allDownloadFiles", all_download_files);
-  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+
+  else {
+    for (vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
+      string file_path(dir + *it);
+      string saved_filename(*it);
+      string folder_path(*it);
+      if ((*it).find("+") == string::npos) {
+        if (file_path.find(".folder") == string::npos) {
+          ss_file << "<a href=\"" << file_path;
+          ss_file << "\" class=\"list-group-item\" download=\"";
+          ss_file << saved_filename << "\">";
+          ss_file << *it;
+          ss_file << "</a>";
+        } else {
+          folder_path = folder_path.substr(0, folder_path.length() - 7);
+          ss_folder << "<a href=\"download/" << folder_path;
+          ss_folder << "\" class=\"list-group-item\" >";
+          ss_folder << folder_path;
+          ss_folder << "</a>";
+        }
+      }
+    }
+
+    this->body = get_file_content_as_string("html/download.html");
+    string all_download_files = ss_file.str();
+    string all_folders = ss_folder.str();
+    replace_all(this->body, "$allDownloadFiles", all_download_files);
+    replace_all(this->body, "$allFolders", all_folders);
+    (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+  }
+
 }
 
 /* display file content */
@@ -193,4 +262,106 @@ void Response::file(const char* filename) {
     (this->headers)[CONTENT_TYPE] = "text/plain";
     this->body = file_content;
     (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* create new folder */
+void Response::create_new_folder(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  string foldername = req.body.substr(req.body.find('=') + 1);
+  string dir(UPLOADED_DIR);
+  store_file(dir, foldername + ".folder", "");
+  this->body = get_file_content_as_string("html/create-new-folder-success.html");
+  replace_all(this->body, "$foldername", foldername);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* rename file */
+void Response::rename_file(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  vector<string> tokens = split(req.body.c_str(), '&');
+  string foldername = tokens.at(0).substr(tokens.at(0).find('=') + 1);
+  string oldname = tokens.at(1).substr(tokens.at(1).find('=') + 1);
+  string newname = tokens.at(2).substr(tokens.at(2).find('=') + 1);
+  if (foldername.length() > 0) {
+    // add "+"
+    foldername += "+";
+  }
+
+  string dir(UPLOADED_DIR);
+  rename((dir + foldername + oldname).c_str(),
+          (dir + foldername + newname).c_str());
+  this->body = get_file_content_as_string("html/rename-file-success.html");
+  replace_all(this->body, "$oldname", oldname);
+  replace_all(this->body, "$newname", newname);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* delete file */
+void Response::delete_file(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  vector<string> tokens = split(req.body.c_str(), '&');
+  string foldername = tokens.at(0).substr(tokens.at(0).find('=') + 1);
+  string filename = tokens.at(1).substr(tokens.at(1).find('=') + 1);
+  if (foldername.length() > 0) {
+    // add "+"
+    foldername += "+";
+  }
+
+  string dir(UPLOADED_DIR);
+  remove((dir + foldername + filename).c_str());
+  this->body = get_file_content_as_string("html/delete-file-success.html");
+  replace_all(this->body, "$filename", filename);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* delete folder */
+void Response::delete_folder(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  string foldername = req.body.substr(req.body.find('=') + 1);
+  string dir(UPLOADED_DIR);
+  vector<string> files(list_all_files(dir));
+
+  for (vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
+    string file_path(dir + *it);
+    if (foldername.length() > 0) {
+      if (*it == (foldername + ".folder")
+          || (*it).find(foldername + "+") != string::npos) {
+        remove(file_path.c_str());
+      }
+    } else {
+      remove(file_path.c_str());
+    }
+  }
+
+  this->body = get_file_content_as_string("html/delete-folder-success.html");
+  replace_all(this->body, "$foldername", foldername);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* move file */
+void Response::move_file(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  vector<string> tokens = split(req.body.c_str(), '&');
+  string filename = tokens.at(0).substr(tokens.at(0).find('=') + 1);
+  string oldfolder = tokens.at(1).substr(tokens.at(1).find('=') + 1);
+  string newfolder = tokens.at(2).substr(tokens.at(2).find('=') + 1);
+
+  string dir(UPLOADED_DIR);
+  if (oldfolder.length() > 0) {
+    rename((dir + oldfolder + "+" + filename).c_str(),
+          (dir + newfolder + "+" + filename).c_str());
+  } else {
+    rename((dir + filename).c_str(),
+          (dir + newfolder + "+" + filename).c_str());
+  }
+
+  this->body = get_file_content_as_string("html/move-file-success.html");
+  replace_all(this->body, "$filename", filename);
+  replace_all(this->body, "$newfolder", newfolder);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }

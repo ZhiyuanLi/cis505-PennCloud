@@ -27,6 +27,11 @@ private:
   void handle_upload(Request req);
   void download(Request req);
   void file(const char* filename);
+  void create_new_folder(Request req);
+  void rename_file(Request req);
+  void delete_file(Request req);
+  void delete_folder(Request req);
+  void move_file(Request req);
 };
 
 #endif

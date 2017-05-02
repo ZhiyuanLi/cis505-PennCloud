@@ -19,11 +19,6 @@ const static char *STORAGE_URL = "/storage";
 const static char *EMAIL_URL = "/email";
 const static char *UPLOAD_URL = "/upload";
 const static char *DOWNLOAD_URL = "/download";
-const static char *NEW_FOLDER_URL = "/newfolder";
-const static char *RENAME_FILE_URL = "/renamefile";
-const static char *DELETE_FILE_URL = "/deletefile";
-const static char *DELETE_FOLDER_URL = "/deletefolder";
-const static char *MOVE_FILE_URL = "/movefile";
 
 const static char *UPLOADED_DIR = "uploaded_files/";
 

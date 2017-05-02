@@ -97,6 +97,7 @@ vector<string> split(const string &s, char delim) {
 string extract_file_content(string req_body) {
   req_body = req_body.substr(req_body.find("\r\n\r\n") + 4);
   return req_body.substr(0, req_body.find("------WebKitFormBoundary") - 2);
+  // return req_body.substr(0, req_body.find("\r\n\r\n") - 2);
 }
 
 /* extract uploaded file name from request body */
@@ -107,6 +108,7 @@ string extract_file_name(string req_body) {
 
 /* create and store uploaded files */
 void store_file(string dir, string filename, string file_content) {
+  debug(1, (dir + filename).c_str());
   ofstream outfile(dir + filename);
   outfile << file_content;
   outfile.close();
