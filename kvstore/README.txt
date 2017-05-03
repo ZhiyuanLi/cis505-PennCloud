@@ -1,9 +1,9 @@
 /**********************************************************************/
 /* Key-value Store Manual
- * @version: 05/01/2017 */
+ * @version: 05/02/2017 */
 /**********************************************************************/
 
-# [ATTENTION] Crash recovery part is not finished at this stage, please test with -n
+# [ATTENTION] without -n, the node with load latest snapshot and replay its own log
 
 # Accepted argv:
 -a         (author)
@@ -19,4 +19,5 @@
 2. get abc,fn
 3. cput abc,fn,hello world,good day!
 4. dele abc,fn
+5. getlist abc,email (or getlist abc,mail)
 (* binary value will be better)
