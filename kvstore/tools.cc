@@ -66,6 +66,36 @@ void rewrite_file(string user, string filename, string value)
 	ofs.close();
 }
 
+/* Copy file in binary mode. */
+bool copy_file(string source, string des)
+{
+    ifstream src(source, ios::binary);
+    ofstream dest(des, ios::binary);
+    dest << src.rdbuf();
+    return src && dest;
+}
+
+/* Check whether this file exists. */
+bool check_file(string filename, vector<string> files, int num_of_files)
+{
+	for (int i = 0; i < num_of_files; i++) {
+		if (files[i].compare(filename) == 0){
+			return true;
+		}
+	}
+	return false;
+}
+
+/* Delete the file. */
+void delete_file(string filename)
+{
+	if(remove(filename.c_str()) != 0 ) {
+	 	cout << "-ERR Delete failed" << endl;
+	} else {
+	 	cout << "+OK File deleted" << endl;
+	}
+}
+
 /* Transfer string to binary. */
 string string_to_binary(string value)
 {
@@ -117,27 +147,6 @@ bool check_dir(string path)
 	} else return false;
 }
 
-/* Check whether this file exists. */
-bool check_file(string filename, vector<string> files, int num_of_files)
-{
-	for (int i = 0; i < num_of_files; i++) {
-		if (files[i].compare(filename) == 0){
-			return true;
-		}
-	}
-	return false;
-}
-
-/* Delete the file. */
-void delete_file(string filename)
-{
-	if(remove(filename.c_str()) != 0 ) {
-	 	cout << "-ERR Delete failed" << endl;
-	} else {
-	 	cout << "+OK File deleted" << endl;
-	}
-}
-
 void read_dir(string user, vector<string> &files, int &num_of_files) {
 	string directory = "storage/" + user;
 	DIR *dir;
@@ -172,6 +181,24 @@ void clear_dir(string directory) {  // directory example: "kvstore/virtual memor
 			string filename(ent->d_name);
 			string path = directory + filename;
 			remove(path.c_str());
+		}
+		closedir (dir);
+	}
+}
+
+void copy_dir(string srcdir, string desdir) {  // directory example: "kvstore/virtual memory/"
+	DIR *dir;
+	struct dirent *ent;
+
+	if ((dir = opendir (srcdir.c_str())) != NULL) {
+		while ((ent = readdir (dir)) != NULL) {
+			if(strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+				continue;
+			}
+			string filename(ent->d_name);
+			string src = srcdir + filename;
+			string des = desdir + filename;
+			copy_file(src, des);
 		}
 		closedir (dir);
 	}

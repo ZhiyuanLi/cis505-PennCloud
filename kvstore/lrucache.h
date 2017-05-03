@@ -27,6 +27,7 @@ public:
     void put(string user, string filename, string value, int comm_fd, bool external);
     void get(string user, string filename, int comm_fd);
     void cput(string user, string filename, string old_value, string new_value, int comm_fd);
+    void getlist(string user, string type, int comm_fd);
     void dele(string user, string filename, int comm_fd);
     void servermsg(const char* msg, int comm_fd);
     int format_node(Node *user_node, string &row);  

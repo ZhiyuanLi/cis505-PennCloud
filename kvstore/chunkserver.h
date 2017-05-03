@@ -17,18 +17,19 @@ public:
     
 public:
   	Chunkserver(int size);
-    void put(char* &line, int comm_fd);
+    void put(char* &line, bool external, int comm_fd); 
     void get(char *line, int comm_fd);
-    void cput(char* &line, int comm_fd);
-    void dele(char* &line, int comm_fd);
+    void cput(char* &line, bool external, int comm_fd);
+    void dele(char* &line, bool external, int comm_fd);
+    void getlist(char *line, int comm_fd);
     void error(int comm_fd);
     void checkpointing(); 
     void load_checkpointing();
+    void replay_log();  
 
 private:
     void parse_line(string s, vector<string> &arguments, int num_of_args);
-    void write_log(char* request); // force write
-    void replay_log();   
+    void write_log(char* request); // force write    
     void write_cp_meta();
     void write_virmem_meta();
     void write_chunk_info();

@@ -4,7 +4,7 @@
  * Created April 2017 
  * CIS 505 (Software Systems), Prof. Linh
  * University of Pennsylvania 
- * @version: 05/01/2017 */
+ * @version: 05/02/2017 */
 /**********************************************************************/
 
 #include <stdlib.h>
@@ -29,6 +29,7 @@
 #include <sstream>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <set>
 
 #include "chunkserver.h"
 #include "parameters.h"
@@ -76,8 +77,9 @@ void initialization() {
 	create_dir("checkpointing");
 	create_dir("metadata");
 
-	if (opt_n) {                         // pay attention to relative path here
-		clear_dir("virtual memory/");    // assume you are in the folder where these directories live
+	if (opt_n) {                              // pay attention to relative path here
+		clear_dir("virtual memory/");         // assume you are in the folder where these directories live
+		clear_dir("checkpointing/virtual memory/"); 
 		clear_dir("checkpointing/");
 		clear_dir("metadata/");
 		initialize_chunk_info("virtual memory");
@@ -85,11 +87,8 @@ void initialization() {
 	} else {
 		// If this is not the very first time that this machine is activated as storage node,
 		// have to do the following crash recovery:
-
-		// load checkpointing
-		server.load_checkpointing();
-
-		// replay log
+		server.load_checkpointing();         // load checkpointing
+		server.replay_log();                 // replay log
 	}	
 }
 
@@ -262,7 +261,7 @@ void *cp_worker (void *arg) {
 		// If -v
 		if (opt_v) {
 			print_time();
-			cout << "Checkpointing starts" << endl;
+			cout << "Checkpointing ongoing" << endl;
 		}
 	}
 }
@@ -330,7 +329,7 @@ void *worker (void *arg) {
 
 				// Executes commands 
 				if(command.compare("put") == 0) {
-					server.put(line, comm_fd);
+					server.put(line, true, comm_fd);
 					continue;
 				}
 
@@ -340,12 +339,17 @@ void *worker (void *arg) {
 				}
 
 				if(command.compare("cput") == 0) {
-					server.cput(line, comm_fd);
+					server.cput(line, true, comm_fd);
 					continue;
 				}
 
 				if(command.compare("dele") == 0) {
-					server.dele(line, comm_fd);
+					server.dele(line, true, comm_fd);
+					continue;
+				}
+
+				if(command.compare("getlist") == 0) {
+					server.getlist(line, comm_fd);
 					continue;
 				}
 

@@ -185,8 +185,6 @@ void LRUCache::load_user_from_disk(string type, string user, int comm_fd) {
 
     if (type.compare("checkpointing") == 0) {
         user_meta = cp_meta[user];
-        map<string,vector<vector<int>>>::iterator it = cp_meta.find(user);
-        cp_meta.erase(it);
     }
      
     string fn_value;
@@ -368,5 +366,31 @@ void LRUCache::dele(string user, string filename, int comm_fd) {
         if (tablets[user]->value.size() == 0) {
             tablets.erase(user);
         }
+    }
+}
+
+void LRUCache::getlist(string user, string type, int comm_fd){
+    int counter = 0;
+    for (auto it: tablets[user]->value) {
+        string filename = it.first;     
+        if ((type.compare("email") == 0 && filename.substr(0,2).compare("##") == 0) ||
+            (type.compare("file") == 0 && filename.substr(0,2).compare("##") != 0)) {
+            string value_read;
+            if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
+                if (counter == 0) {
+                    const char* feedback = "+OK list as follows: \r\n";
+                    servermsg(feedback, comm_fd);
+                }
+                string fn_value = filename + "," + value_read + ",";
+                send(comm_fd, fn_value.c_str(), fn_value.size() + 1, 0);
+
+                // If -v
+                if (opt_v) {
+                    print_time();
+                    fprintf(stderr, "[%d] S: %s", comm_fd, fn_value.c_str());
+                }
+            }
+        }
+        counter += 1; 
     }
 }
