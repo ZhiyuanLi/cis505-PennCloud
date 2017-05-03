@@ -19,5 +19,5 @@
 2. get abc,fn
 3. cput abc,fn,hello world,good day!
 4. dele abc,fn
-5. getlist abc,email (or getlist abc,mail)
+5. getlist abc,email (or getlist abc,file)
 (* binary value will be better)
