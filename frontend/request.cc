@@ -74,14 +74,13 @@ Request::Request(int fd) {
   }
 
   // POST message body
-  // char buf[50000];
   if (this->method == "POST" && this->content_length > 0) {
-    char* buf = (char*) malloc(sizeof(char) * this->content_length);
+    char* buf = (char*) malloc(sizeof(char) * (this->content_length + 1));
     do_read(fd, buf, this->content_length);
-    this->body = string(buf);
-    debug(1, "[Request Body]: ");
-    debug(1, this->body.c_str());
-    debug(1, "\r\n");
+    buf[this->content_length] = '\0';
+    for (int i = 0; i < this->content_length; i++) {
+      this->body += buf[i];
+    }
     free(buf);
   }
 
