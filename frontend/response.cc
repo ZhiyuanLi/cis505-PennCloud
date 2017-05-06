@@ -175,13 +175,11 @@ void Response::upload(Request req) {
 /* handle file upload */
 void Response::handle_upload(Request req) {
   this->status = OK;
-  (this->headers)[CONTENT_TYPE] = "text/plain";
-  // (this->headers)[CONTENT_TYPE] = "application/pdf";
+  (this->headers)[CONTENT_TYPE] = "text/html";
   string dir(UPLOADED_DIR);
   string filename(extract_file_name(req.body));
-  this->body = extract_file_content(req.body, req.content_length);
-  // this->body = get_file_content_as_string("html/redirect-to-download.html");
-  store_file(dir, filename, this->body);
+  store_file(dir, filename, extract_file_content(req.body, req.content_length));
+  this->body = get_file_content_as_string("html/upload.html");
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
