@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "config.h"
+#include "conhash.h"
 
 using namespace std;
 
@@ -96,6 +97,9 @@ int main(int argc, char *argv[]) {
     buf[rlen] = 0;
     std::string message(buf);
     string rep;
+
+    printf("Receive [%s] from %s:%d\n", buf, inet_ntoa(src.sin_addr),
+           ntohs(src.sin_port));
 
     string command = message.substr(0, 1);
 

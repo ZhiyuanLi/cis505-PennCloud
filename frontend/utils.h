@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -40,6 +41,6 @@ bool is_file_exist(const char *fileName);
 string get_file_content_as_string(const char *filename);
 
 /* replace all substring in a string */
-void replace_all(string& str, const string& from, const string& to);
+void replace_all(string &str, const string &from, const string &to);
 
 #endif
