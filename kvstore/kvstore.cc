@@ -412,14 +412,16 @@ int main(int argc, char *argv[])
     inet_pton(AF_INET, MASTER_IP, &(dest.sin_addr));
 
     // ask master for identity P or S
-    string contact_master = "!#" + to_string(node_id);
+    string contact_master = "!" + to_string(node_id);
     sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));
+    cout << "To master: " << contact_master << endl;
 
     struct sockaddr_in src;
     socklen_t srcSize = sizeof(src);
     char feedback[255];
     int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0, (struct sockaddr*)&src, &srcSize);
     feedback[rlen] = 0;
+    cout << "From master: " << feedback << endl;
     confirm_identity(feedback);
 
     close(udp_fd);
