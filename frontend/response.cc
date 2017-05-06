@@ -79,6 +79,21 @@ Response::Response(Request req) {
     move_file(req);
   }
 
+  // send email
+  else if (req.path == SEND_EMAIL_URL) {
+    send_email(req);
+  }
+
+  // inbox
+  else if (req.path == INBOX_URL) {
+    inbox(req);
+  }
+
+  // view email
+  else if (req.path == VIEW_EMAIL_URL) {
+    view_email(req);
+  }
+
 }
 
 void Response::reply(int fd) {
@@ -171,6 +186,10 @@ bool Response::is_already_login(map<string, string> cookies, string &username) {
   }
   return false;
 }
+
+/****************
+ * file storage *
+ ****************/
 
 /* file upload */
 void Response::upload(Request req) {
@@ -392,4 +411,32 @@ void Response::download_file(Request req) {
     this->body += buf[i];
   }
   free(buf);
+}
+
+/*********
+ * email *
+ *********/
+
+/* send email */
+void Response::send_email(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/send-email.html");
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* inbox */
+void Response::inbox(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/inbox.html");
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* inbox */
+void Response::view_email(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/view-email.html");
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }

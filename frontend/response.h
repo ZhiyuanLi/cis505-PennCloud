@@ -33,6 +33,9 @@ private:
   void delete_folder(Request req);
   void move_file(Request req);
   void download_file(Request req);
+  void send_email(Request req);
+  void inbox(Request req);
+  void view_email(Request req);
 };
 
 #endif

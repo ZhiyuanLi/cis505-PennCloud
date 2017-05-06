@@ -24,6 +24,9 @@ const static char *RENAME_FILE_URL = "/renamefile";
 const static char *DELETE_FILE_URL = "/deletefile";
 const static char *DELETE_FOLDER_URL = "/deletefolder";
 const static char *MOVE_FILE_URL = "/movefile";
+const static char *SEND_EMAIL_URL = "/sendemail";
+const static char *INBOX_URL = "/inbox";
+const static char *VIEW_EMAIL_URL = "/viewemail";
 
 const static char *UPLOADED_DIR = "uploaded_files/";
 
