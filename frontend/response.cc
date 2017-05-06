@@ -105,13 +105,19 @@ void Response::reply(int fd) {
     rep += it->first + it->second + "\r\n";
   }
   rep += "\r\n";
-  rep += body;
+  // rep += this->body;
 
   char crep[rep.length() + 1];
   strcpy(crep, rep.c_str());
 
+  // send header
   debug(1, "[%d] S: %s", fd, crep);
   do_write(fd, crep, strlen(crep));
+
+  // send body
+  for (int i = 0; i < (this->body).length(); i++) {
+    do_write(fd, &(this->body).at(i), 1);
+  }
 }
 
 /* register */
@@ -230,10 +236,10 @@ void Response::download(Request req) {
         int slash = (*it).find("+");
         saved_filename = saved_filename.substr(slash + 1);
         if (*it == curr_folder + "+" + saved_filename) {
-          ss_file << "<a href=\"" << file_path;
-          // ss_file << "\" class=\"list-group-item\" >";
-          ss_file << "\" class=\"list-group-item\" download=\"";
-          ss_file << saved_filename << "\">";
+          ss_file << "<a href=\"?" << file_path;
+          ss_file << "\" class=\"list-group-item\" >";
+          // ss_file << "\" class=\"list-group-item\" download=\"";
+          // ss_file << saved_filename << "\">";
           ss_file << saved_filename;
           ss_file << "</a>";
         }
@@ -253,10 +259,10 @@ void Response::download(Request req) {
       string folder_path(*it);
       if ((*it).find("+") == string::npos) {
         if (file_path.find(".folder") == string::npos) {
-          ss_file << "<a href=\"" << file_path;
-          // ss_file << "\" class=\"list-group-item\" >";
-          ss_file << "\" class=\"list-group-item\" download=\"";
-          ss_file << saved_filename << "\">";
+          ss_file << "<a href=\"?" << file_path;
+          ss_file << "\" class=\"list-group-item\" >";
+          // ss_file << "\" class=\"list-group-item\" download=\"";
+          // ss_file << saved_filename << "\">";
           ss_file << *it;
           ss_file << "</a>";
         } else {
@@ -399,10 +405,20 @@ void Response::download_file(Request req) {
   int filesize = file_size(file_path.c_str());
   this->status = OK;
   (this->headers)[CONTENT_LEN] = to_string(filesize);
-  (this->headers)[CONTENT_TYPE] = "force-download";
-  (this->headers)["Content-Transfer-Encoding: "] = "binary";
-  (this->headers)["Content-Disposition: "] = "attachment; filename=\"" + file_path + "\"";
 
+  // check content type
+  if (file_path.find("jpeg") != string::npos
+      || file_path.find("jpg") != string::npos) {
+    (this->headers)[CONTENT_TYPE] = "image/jpeg";
+  } else if (file_path.find("png") != string::npos) {
+    (this->headers)[CONTENT_TYPE] = "image/png";
+  } else if (file_path.find("pdf") != string::npos) {
+    (this->headers)[CONTENT_TYPE] = "application/pdf";
+  } else {
+    (this->headers)[CONTENT_TYPE] = "text/plain";
+  }
+
+  // get file content
   char* buf = (char*) malloc(sizeof(char) * filesize);
   fstream file(file_path.c_str(), ios::in | ios::out | ios::binary);
   this->body = "";
