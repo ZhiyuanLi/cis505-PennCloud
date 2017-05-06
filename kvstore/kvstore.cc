@@ -4,7 +4,7 @@
  * Created April 2017 
  * CIS 505 (Software Systems), Prof. Linh
  * University of Pennsylvania 
- * @version: 05/02/2017 */
+ * @version: 05/05/2017 */
 /**********************************************************************/
 
 #include <stdlib.h>
@@ -39,13 +39,14 @@
 using namespace std;
 
 /* Node identity: Primary or Secondary. */
-bool isPrimary = true;
+bool isPrimary = false;
 
 /* Node ID */
 int node_id;
 
-string ip;
-string port;
+string primary_ip;
+unsigned int primary_port;
+int secondary_fd;
 
 map<string, vector<int>> chunk_info;           // key: virtual memory / checkpointing (since we'll rewrite checkpointing periodically, thus separate these chunks)
                                                // value: #0: the # of current chunk (start from chunk 0), 
@@ -74,6 +75,50 @@ bool opt_n = false;                            // brand new storage node with no
 /* A new chunkserver instance. */
 Chunkserver server(NODE_CAPACITY);
 
+/* Parse the arguments given by command line. */
+void parse_arguments (int argc, char* argv[]) {
+	int index;
+	int c;
+	opterr = 0;
+	while ((c = getopt (argc, argv, "avi:p:nt:")) != -1)
+	    switch (c)
+	      {
+	      case 'a':
+	    	opt_a = true;
+	    	break;
+	      case 'v':
+	      	opt_v = true;
+	      	break;
+	      case 'i':
+	        node_id = atoi(optarg);
+	        break;
+	      case 'p':
+	    	port_number = atoi(optarg);
+	        break;
+	      case 'n':
+	      	opt_n = true;
+	      	break;
+	      case 't':
+	      	cout << optarg << endl;
+	        if (strcmp(optarg, "P") == 0) isPrimary = true;
+	        if (strcmp(optarg, "S") == 0) isPrimary = false;
+	        break;
+	      case '?':
+	        if (optopt == 'p' || optopt == 'i')
+	          fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+	        else if (isprint (optopt))
+	          fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+	        else
+	          fprintf (stderr,
+	                   "Unknown option character `\\x%x'.\n",
+	                   optopt);
+	        exit(1);
+	      default:
+	    	  fprintf(stderr, "Unknown error\n");
+	    	  break;
+	      }
+}
+
 void initialize_chunk_info(string key){
 	chunk_info[key].push_back(0);
 	chunk_info[key].push_back(0);
@@ -99,43 +144,112 @@ void initialization() {
 	}	
 }
 
-/* Parse the arguments given by command line. */
-void parse_arguments (int argc, char* argv[]) {
-	int index;
-	int c;
-	opterr = 0;
-	while ((c = getopt (argc, argv, "avi:p:n")) != -1)
-	    switch (c)
-	      {
-	      case 'a':
-	    	opt_a = true;
-	    	break;
-	      case 'v':
-	      	opt_v = true;
-	      	break;
-	      case 'i':
-	        node_id = atoi(optarg);
-	        break;
-	      case 'p':
-	    	port_number = atoi(optarg);
-	        break;
-	      case 'n':
-	      	opt_n = true;
-	      	break;
-	      case '?':
-	        if (optopt == 'p' || optopt == 'i')
-	          fprintf (stderr, "Option -%c requires an argument.\n", optopt);
-	        else if (isprint (optopt))
-	          fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-	        else
-	          fprintf (stderr,
-	                   "Unknown option character `\\x%x'.\n",
-	                   optopt);
-	        exit(1);
-	      default:
-	    	  fprintf(stderr, "Unknown error\n");
-	    	  break;
-	      }
+void parse_ip_and_port(string s)
+{
+    string delimiter = ":";
+
+    size_t pos = 0;
+    string token;
+    while ((pos = s.find(delimiter)) != string::npos) {
+        primary_ip = s.substr(0, pos);
+        s.erase(0, pos + delimiter.length());
+    }
+    primary_port = stoi(s);
+}
+
+void confirm_identity(char feedback []) {
+	string s(feedback);
+	if (s.size() == 1 && s.compare("P") == 0) {
+		isPrimary = true;
+	} else {
+
+		// parse ip and port 
+		string ip_port = s.substr(2, s.size() - 1);
+		parse_ip_and_port(ip_port);
+
+		// if -v, print ip and port of primary
+		if (opt_v) {
+			print_time();
+			cout << "primary ip: " << primary_ip << endl;
+			print_time();
+			cout << "primary port: " << primary_port << endl;
+		}				
+		isPrimary = false;
+	}
+}
+
+void contact_master() {
+
+	// contact master with UDP
+	int udp_fd = socket(PF_INET, SOCK_DGRAM, 0);
+    if (udp_fd < 0) {
+        fprintf(stderr, "Cannot open socket (%s)\n", strerror(errno));
+        exit(1);
+    }
+
+    // associate with master IP address and port number
+    struct sockaddr_in dest;
+    bzero(&dest, sizeof(dest));
+    dest.sin_family = AF_INET;
+    dest.sin_port = htons(MASTER_PORT);
+    inet_pton(AF_INET, MASTER_IP, &(dest.sin_addr));
+
+    struct sockaddr_in servaddr;
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = htons(INADDR_ANY);
+	servaddr.sin_port = htons(port_number);
+	int ret = bind(udp_fd, (struct sockaddr*)&servaddr, sizeof(servaddr));
+
+    // ask master for identity P or S
+    string ask_master = "!" + to_string(node_id);
+    sendto(udp_fd, ask_master.c_str(), ask_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));   
+
+    struct sockaddr_in src;
+    socklen_t srcSize = sizeof(src);
+    char feedback[255];
+    int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0, (struct sockaddr*)&src, &srcSize);
+    feedback[rlen] = 0;   
+    
+    // if -v, print conversation with master
+	if (opt_v) {
+		print_time();
+		cout << "To master: " << ask_master << endl;
+		print_time();
+		cout << "From master: " << feedback << endl;
+	}
+
+	confirm_identity(feedback);
+    close(udp_fd);
+}
+
+// TODO: unfinished
+void contact_primary() {
+	// Creates a stream socket
+	int sock_fd = socket(PF_INET, SOCK_STREAM, 0);
+	if (sock_fd < 0) {
+		fprintf(stderr, "Cannot open socket (%s)\n", strerror(errno));
+		exit(1);
+	}
+
+	// Associates a socket with a specific port or IP address
+	struct sockaddr_in primaryaddr;
+	bzero(&primaryaddr, sizeof(primaryaddr));
+	primaryaddr.sin_family = AF_INET;
+	primaryaddr.sin_port = htons(primary_port);
+	inet_pton(AF_INET, primary_ip.c_str(), &(primaryaddr.sin_addr));
+	connect(sock_fd, (struct sockaddr*)&primaryaddr, sizeof(primaryaddr));
+
+	// Report to primary
+	const char* greeting = "S\r\n";
+	send(sock_fd, greeting, strlen(greeting),0);
+
+	// if -v, print conversation with primary
+	if (opt_v) {
+		print_time();
+		cout << "To primary: "  << greeting << endl;
+	}
+	close(sock_fd);
 }
 
 /* Change commands into lower case. */
@@ -253,16 +367,6 @@ string parse_command(char* line)
 		delete [] command;
 		return c;
 	}	
-}
-
-void confirm_identity(char feedback []) {
-	string s(feedback);
-	if (s.size() == 0 && s.compare("P") == 0) {
-		isPrimary = true;
-	} else {
-		// parse ip and port 
-		isPrimary = false;
-	}
 }
 
 /* This thread worker does checkpointing periodically. */
@@ -397,41 +501,22 @@ int main(int argc, char *argv[])
 	// parse command line arguments
 	parse_arguments(argc, argv);
 
-	// contact master with UDP
-	int udp_fd = socket(PF_INET, SOCK_DGRAM, 0);
-    if (udp_fd < 0) {
-        fprintf(stderr, "Cannot open socket (%s)\n", strerror(errno));
-        exit(1);
-    }
-
-    // associate with master IP address and port number
-    struct sockaddr_in dest;
-    bzero(&dest, sizeof(dest));
-    dest.sin_family = AF_INET;
-    dest.sin_port = htons(MASTER_PORT);
-    inet_pton(AF_INET, MASTER_IP, &(dest.sin_addr));
-
-    // ask master for identity P or S
-    string contact_master = "!" + to_string(node_id);
-    sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));
-    cout << "To master: " << contact_master << endl;
-
-    struct sockaddr_in src;
-    socklen_t srcSize = sizeof(src);
-    char feedback[255];
-    int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0, (struct sockaddr*)&src, &srcSize);
-    feedback[rlen] = 0;
-    cout << "From master: " << feedback << endl;
-    confirm_identity(feedback);
-
-    close(udp_fd);
-
-	initialization();
-
 	// if -a
 	if (opt_a) {
 		fprintf(stderr, "Author: CIS 505 T20\r\n");
 		exit(3);
+	}
+
+	// ask master for identity: P or S
+	contact_master();
+
+	initialization();
+
+	if (isPrimary) {
+		print_time();
+		cout << "I'm primary with node ID: " << node_id << endl;
+	} else {
+		// contact_primary(); //TODO
 	}
 
 	// Creates a stream socket
@@ -452,8 +537,9 @@ int main(int argc, char *argv[])
 	// if -v, print server ip and port
 	if (opt_v) {
 		print_time();
-		cout << "server ip: "  << inet_ntoa(servaddr.sin_addr) << endl;
-		cout << "server port: " << to_string(ntohs(servaddr.sin_port)) << endl;
+		cout << "Server ip: "  << inet_ntoa(servaddr.sin_addr) << endl;
+		print_time();
+		cout << "Server port: " << to_string(ntohs(servaddr.sin_port)) << endl;
 	}
 
 	if(ret < 0)
@@ -472,8 +558,9 @@ int main(int argc, char *argv[])
 		// if -v, print server ip and port
 		if (opt_v) {
 			print_time();
-			cout << "client ip: "  << inet_ntoa(clientaddr.sin_addr) << endl;
-			cout << "client port: " << to_string(ntohs(clientaddr.sin_port)) << endl;
+			cout << "Client ip: "  << inet_ntoa(clientaddr.sin_addr) << endl;
+			print_time();
+			cout << "Client port: " << to_string(ntohs(clientaddr.sin_port)) << endl;
 		}
 
 		// Accepts the next incoming connection
