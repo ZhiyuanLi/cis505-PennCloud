@@ -156,3 +156,9 @@ void replace_all(string& str, const string& from, const string& to) {
         start_pos += to.length();
     }
 }
+
+/* get file size */
+int file_size(const char* filename) {
+    ifstream in(filename, ifstream::ate | ifstream::binary);
+    return in.tellg();
+}

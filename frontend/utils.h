@@ -43,4 +43,7 @@ string get_file_content_as_string(const char *filename);
 /* replace all substring in a string */
 void replace_all(string &str, const string &from, const string &to);
 
+/* get file size */
+int file_size(const char* filename);
+
 #endif

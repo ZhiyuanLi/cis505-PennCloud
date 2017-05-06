@@ -32,6 +32,7 @@ private:
   void delete_file(Request req);
   void delete_folder(Request req);
   void move_file(Request req);
+  void download_file(Request req);
 };
 
 #endif

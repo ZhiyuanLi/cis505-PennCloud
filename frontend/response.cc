@@ -4,6 +4,7 @@
 #include <string.h>
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include "constants.h"
 #include "utils.h"
@@ -42,6 +43,12 @@ Response::Response(Request req) {
     }
   }
 
+  // download file
+  else if (req.path.length() >= 10
+          && req.path.substr(0, 10) == "/download?") {
+    download_file(req);
+  }
+
   // download
   else if (req.path.length() >= 9 && req.path.substr(0, 9) == DOWNLOAD_URL) {
     download(req);
@@ -71,6 +78,7 @@ Response::Response(Request req) {
   else if (req.path == MOVE_FILE_URL) {
     move_file(req);
   }
+
 }
 
 void Response::reply(int fd) {
@@ -204,6 +212,7 @@ void Response::download(Request req) {
         saved_filename = saved_filename.substr(slash + 1);
         if (*it == curr_folder + "+" + saved_filename) {
           ss_file << "<a href=\"" << file_path;
+          // ss_file << "\" class=\"list-group-item\" >";
           ss_file << "\" class=\"list-group-item\" download=\"";
           ss_file << saved_filename << "\">";
           ss_file << saved_filename;
@@ -226,6 +235,7 @@ void Response::download(Request req) {
       if ((*it).find("+") == string::npos) {
         if (file_path.find(".folder") == string::npos) {
           ss_file << "<a href=\"" << file_path;
+          // ss_file << "\" class=\"list-group-item\" >";
           ss_file << "\" class=\"list-group-item\" download=\"";
           ss_file << saved_filename << "\">";
           ss_file << *it;
@@ -362,4 +372,24 @@ void Response::move_file(Request req) {
   replace_all(this->body, "$filename", filename);
   replace_all(this->body, "$newfolder", newfolder);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* download file */
+void Response::download_file(Request req) {
+  string file_path = req.path.substr(10);
+  int filesize = file_size(file_path.c_str());
+  this->status = OK;
+  (this->headers)[CONTENT_LEN] = to_string(filesize);
+  (this->headers)[CONTENT_TYPE] = "force-download";
+  (this->headers)["Content-Transfer-Encoding: "] = "binary";
+  (this->headers)["Content-Disposition: "] = "attachment; filename=\"" + file_path + "\"";
+
+  char* buf = (char*) malloc(sizeof(char) * filesize);
+  fstream file(file_path.c_str(), ios::in | ios::out | ios::binary);
+  this->body = "";
+  for (int i = 0; i < filesize; i++) {
+    file.read(buf + i, 1);
+    this->body += buf[i];
+  }
+  free(buf);
 }
