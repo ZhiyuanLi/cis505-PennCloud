@@ -34,11 +34,18 @@
 #include "chunkserver.h"
 #include "parameters.h"
 #include "tools.h"
+#include "../master/config.h"
 
 using namespace std;
 
 /* Node identity: Primary or Secondary. */
 bool isPrimary = true;
+
+/* Node ID */
+int node_id;
+
+string ip;
+string port;
 
 map<string, vector<int>> chunk_info;           // key: virtual memory / checkpointing (since we'll rewrite checkpointing periodically, thus separate these chunks)
                                                // value: #0: the # of current chunk (start from chunk 0), 
@@ -107,9 +114,7 @@ void parse_arguments (int argc, char* argv[]) {
 	      	opt_v = true;
 	      	break;
 	      case 'i':
-	      	if (strcmp(optarg, "P") == 0) isPrimary = true;
-	    	else if(strcmp(optarg, "S") == 0) isPrimary = false;
-	    	else fprintf (stderr, "Please choose node indentity from P/S.\n");
+	        node_id = atoi(optarg);
 	        break;
 	      case 'p':
 	    	port_number = atoi(optarg);
@@ -247,8 +252,17 @@ string parse_command(char* line)
 		string c(command);
 		delete [] command;
 		return c;
+	}	
+}
+
+void confirm_identity(char feedback []) {
+	string s(feedback);
+	if (s.size() == 0 && s.compare("P") == 0) {
+		isPrimary = true;
+	} else {
+		// parse ip and port 
+		isPrimary = false;
 	}
-	
 }
 
 /* This thread worker does checkpointing periodically. */
@@ -383,6 +397,33 @@ int main(int argc, char *argv[])
 	// parse command line arguments
 	parse_arguments(argc, argv);
 
+	// contact master with UDP
+	int udp_fd = socket(PF_INET, SOCK_DGRAM, 0);
+    if (udp_fd < 0) {
+        fprintf(stderr, "Cannot open socket (%s)\n", strerror(errno));
+        exit(1);
+    }
+
+    // associate with master IP address and port number
+    struct sockaddr_in dest;
+    bzero(&dest, sizeof(dest));
+    dest.sin_family = AF_INET;
+    dest.sin_port = htons(MASTER_PORT);
+    inet_pton(AF_INET, MASTER_IP, &(dest.sin_addr));
+
+    // ask master for identity P or S
+    string contact_master = "!#" + to_string(node_id);
+    sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));
+
+    struct sockaddr_in src;
+    socklen_t srcSize = sizeof(src);
+    char feedback[255];
+    int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0, (struct sockaddr*)&src, &srcSize);
+    feedback[rlen] = 0;
+    confirm_identity(feedback);
+
+    close(udp_fd);
+
 	initialization();
 
 	// if -a
@@ -405,6 +446,14 @@ int main(int argc, char *argv[])
 	servaddr.sin_addr.s_addr = htons(INADDR_ANY);
 	servaddr.sin_port = htons(port_number);
 	int ret = bind(listen_fd, (struct sockaddr*)&servaddr, sizeof(servaddr));
+
+	// if -v, print server ip and port
+	if (opt_v) {
+		print_time();
+		cout << "server ip: "  << inet_ntoa(servaddr.sin_addr) << endl;
+		cout << "server port: " << to_string(ntohs(servaddr.sin_port)) << endl;
+	}
+
 	if(ret < 0)
 	{
 		fprintf(stderr,"bind error!\n");
@@ -417,6 +466,13 @@ int main(int argc, char *argv[])
 	while (true) {
 		struct sockaddr_in clientaddr;
 		socklen_t clientaddrlen = sizeof(clientaddr);
+
+		// if -v, print server ip and port
+		if (opt_v) {
+			print_time();
+			cout << "client ip: "  << inet_ntoa(clientaddr.sin_addr) << endl;
+			cout << "client port: " << to_string(ntohs(clientaddr.sin_port)) << endl;
+		}
 
 		// Accepts the next incoming connection
 		int *fd = (int*) malloc(sizeof(int));
