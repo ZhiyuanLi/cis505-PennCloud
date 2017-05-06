@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
   expectToRead(&conn1, "250 OK");
   expectNoMoreData(&conn1);
 
-  writeString(&conn1, "RCPT TO:<linhphan@gmail.com>\r\n");
+  writeString(&conn1, "RCPT TO:<mengjin@seas.upenn.edu>\r\n");
   expectToRead(&conn1, "250 OK");
   expectNoMoreData(&conn1);
 
@@ -52,11 +52,11 @@ int main(int argc, char *argv[])
   expectNoMoreData(&conn1);
 
   writeString(&conn1, "From: Benjamin Franklin <benjamin.franklin@localhost>\r\n");
-  writeString(&conn1, "To: Linh Thi Xuan Phan <linhphan@localhost>\r\n");
+  writeString(&conn1, "To: Mengjin <mengjin@seas.upenn.edu>\r\n");
   writeString(&conn1, "Date: Fri, 21 Oct 2016 18:29:11 -0400\r\n");
   writeString(&conn1, "Subject: Testing my new email account\r\n");
   writeString(&conn1, "\r\n");
-  writeString(&conn1, "Linh,\r\n");
+  writeString(&conn1, "Mengjin,\r\n");
   writeString(&conn1, "\r\n");
   writeString(&conn1, "I just wanted to see whether my new email account works.\r\n");
   writeString(&conn1, "\r\n");
