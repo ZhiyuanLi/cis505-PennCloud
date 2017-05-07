@@ -276,15 +276,11 @@ bool LRUCache::put_helper(string user, string filename, string value, int comm_f
                     servermsg(feedback, comm_fd);
                 } 
             } else {
-<<<<<<< HEAD
+
                 string report = "DONE " + user + "," + to_string(seq_num) + "\r\n";
                 send(comm_fd, report.c_str(), report.size(), 0); 
-            }                      
-=======
-                const char* feedback = "+OK Value stored\r\n";
-                servermsg(feedback, comm_fd);
-            }
->>>>>>> 3ef268615ec0e7150ea32e13378f81c449d117d8
+            }  
+
         }
         return true;
     }
@@ -343,11 +339,7 @@ void LRUCache::get(string user, string filename, int comm_fd) {
     if (get_helper(user, filename, value_read, comm_fd)) {
         const char* feedback = "+OK value as follows: \r\n";
         servermsg(feedback, comm_fd);
-<<<<<<< HEAD
-        send(comm_fd, value_read.c_str(), value_read.size(), 0);
-=======
         send(comm_fd, value_read.c_str(), strlen(value_read.c_str()), 0);
->>>>>>> 3ef268615ec0e7150ea32e13378f81c449d117d8
 
         // If -v
         if (opt_v) {
@@ -405,11 +397,7 @@ void LRUCache::getlist(string user, string type, int comm_fd){
                     servermsg(feedback, comm_fd);
                 }
                 string fn_value = filename + "," + value_read + ",";
-<<<<<<< HEAD
-                send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
-=======
                 send(comm_fd, fn_value.c_str(), strlen(fn_value.c_str()), 0);
->>>>>>> 3ef268615ec0e7150ea32e13378f81c449d117d8
 
                 // If -v
                 if (opt_v) {

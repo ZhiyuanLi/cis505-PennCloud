@@ -518,18 +518,13 @@ void *worker (void *arg) {
 	char *temp_buffer = new char[1];
 	temp_buffer[0] = '\0';
 
-<<<<<<< HEAD
-	// Executes until user quits. 
-	while (!isQuit) {
-=======
 	// Executes until user quits.
 	if (!isQuit) {
->>>>>>> 3ef268615ec0e7150ea32e13378f81c449d117d8
 
 		// Reads msg into buffer
 		char *line = new char [bufsize];
 		int nread = recv(comm_fd, line, bufsize - 1, 0);
-    line[nread]='\0';
+    	line[nread]='\0';
 
 		// if -v
 		if (opt_v) {
@@ -550,129 +545,52 @@ void *worker (void *arg) {
 
 		if (nread > 0) {
 
-			// Merges temporary buffer(with info from previous buffer) and new buffer
-			// merge_buffer(temp_buf_size, buffer, temp_buffer);
+			// Extracts command
+			string command = parse_command(line);
 
-			// Executes command as long as there are <CR><LF> in current buffer
-			// while (strstr(buffer, "\r\n") > 0) {
+			// Executes commands
+			if (command.compare("put") == 0) {
+				server.put(line, true, comm_fd, 0);
+			}
 
-				// Finds the index of the first <CR><LF>
-<<<<<<< HEAD
-				int index = strstr(buffer, "\r\n") - buffer;
+			else if (command.compare("get") == 0) {
+				server.get(line, comm_fd);
 
-				// Puts the full line in one array
-				char *line = new char [index + 3];
-				strncpy(line, buffer, index + 2);
-				line[index + 2] = '\0';
+			}
 
-				// Updates buffer 
-				temp_buf_size = counter - index - 2;
-				update_buffer(temp_buf_size, index, buffer, temp_buffer);
+			else if (command.compare("cput") == 0) {
+				server.cput(line, true, comm_fd, 0);
 
-				// Updates counter
-				counter = counter - index - 2;
-=======
-				// int index = strstr(buffer, "\r\n") - buffer;
-				//
-				// // Puts the full line in one array
-				// char *line = new char [index + 3];
-				// strncpy(line, buffer, index + 2);
-				// line[index + 2] = '\0';
-				//
-				// // Updates buffer
-				// temp_buf_size = counter - index - 2;
-				// update_buffer(temp_buf_size, index, buffer, temp_buffer);
-				//
-				// // Updates counter
-				// counter = counter - index - 2;
->>>>>>> 3ef268615ec0e7150ea32e13378f81c449d117d8
+			}
 
-				// Extracts command
-				string command = parse_command(line);
+			else if (command.compare("dele") == 0) {
+				server.dele(line, true, comm_fd, 0);
 
-<<<<<<< HEAD
-				// one-time connection with client
+			}
+
+			else if (command.compare("getlist") == 0) {
+				server.getlist(line, comm_fd);
+
+			}
+
+			else if (command.compare("rename") == 0) {
+				server.rename(line, comm_fd, 0);
+				continue;
+			}
+
+			else if (command.compare("done") == 0) {
+				handle_secondary_report(line);
+				continue;
+			}
+
+			else if (command.compare("quit") == 0) {
 				isQuit = true;
 
-				// Executes commands 
-				if(command.compare("put") == 0) {
-					server.put(line, true, comm_fd, 0);
-					continue;
-=======
-
-				// Executes commands
-				if(command.compare("put") == 0) {
-					server.put(line, true, comm_fd);
-
->>>>>>> 3ef268615ec0e7150ea32e13378f81c449d117d8
-				}
-
-				else if(command.compare("get") == 0) {
-					server.get(line, comm_fd);
-
-				}
-
-<<<<<<< HEAD
-				if(command.compare("cput") == 0) {
-					server.cput(line, true, comm_fd, 0);
-					continue;
-				}
-
-				if(command.compare("dele") == 0) {
-					server.dele(line, true, comm_fd, 0);
-					continue;
-=======
-				else if(command.compare("cput") == 0) {
-					server.cput(line, true, comm_fd);
-
-				}
-
-				else if(command.compare("dele") == 0) {
-					server.dele(line, true, comm_fd);
-
->>>>>>> 3ef268615ec0e7150ea32e13378f81c449d117d8
-				}
-
-				else if(command.compare("getlist") == 0) {
-					server.getlist(line, comm_fd);
-
-				}
-
-<<<<<<< HEAD
-				if(command.compare("rename") == 0) {
-					server.rename(line, comm_fd);
-					continue;
-				}
-
-				if(command.compare("done") == 0) {
-					handle_secondary_report(line);
-					continue;
-				}
-
-				if(command.compare("quit") == 0) {
-=======
-				else if(command.compare("quit") == 0) {
->>>>>>> 3ef268615ec0e7150ea32e13378f81c449d117d8
-					isQuit = true;
-
-				}else{
-					server.error(comm_fd);
-				}
-
-			// } // end while (still have lines end with <CRLF>)
-
-<<<<<<< HEAD
-			// Stores the info in the temporary buffer if no <CR><LF> found 
-			if(strstr(buffer, "\r\n") <= 0) {
-				store_incomplete_line(temp_buf_size, temp_buffer, buffer);
+			} else {
+				server.error(comm_fd);
 			}
-=======
-			// Stores the info in the temporary buffer if no <CR><LF> found
-			// if(strstr(buffer, "\r\n") <= 0) {
-			// 	store_incomplete_line(temp_buf_size, temp_buffer, buffer);
-			// }
->>>>>>> 3ef268615ec0e7150ea32e13378f81c449d117d8
-		} // end if (nread > 0)
+		}
+		
 		delete [] line;
 	} // end while (!quit)
 
