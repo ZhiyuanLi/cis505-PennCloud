@@ -1,9 +1,9 @@
 /**********************************************************************/
-/* This is a multi-threaded chunk server with LRU Cache + Virtual Memory. 
+/* This is a multi-threaded chunk server with LRU Cache + Virtual Memory.
  * Implements the idea of key-value store
- * Created April 2017 
+ * Created April 2017
  * CIS 505 (Software Systems), Prof. Linh
- * University of Pennsylvania 
+ * University of Pennsylvania
  * @version: 05/05/2017 */
 /**********************************************************************/
 
@@ -49,14 +49,14 @@ unsigned int primary_port;
 int secondary_fd;
 
 map<string, vector<int>> chunk_info;           // key: virtual memory / checkpointing (since we'll rewrite checkpointing periodically, thus separate these chunks)
-                                               // value: #0: the # of current chunk (start from chunk 0), 
+                                               // value: #0: the # of current chunk (start from chunk 0),
                                                //        #1: current chunk size
 
 map<string, vector<vector<int>>> virmem_meta;  // key: user (in virtual memory)
-                                               // value: a sequence of (#chunk, start_idx, length) 
+                                               // value: a sequence of (#chunk, start_idx, length)
 
 map<string, vector<vector<int>>> cp_meta;      // key: user (in memory) when checkpointing
-                                               // value: a sequence of (#chunk, start_idx, length) 
+                                               // value: a sequence of (#chunk, start_idx, length)
 
 
 /* Keep a record of the space left. */
@@ -131,7 +131,7 @@ void initialization() {
 
 	if (opt_n) {                              // pay attention to relative path here
 		clear_dir("virtual memory/");         // assume you are in the folder where these directories live
-		clear_dir("checkpointing/virtual memory/"); 
+		clear_dir("checkpointing/virtual memory/");
 		clear_dir("checkpointing/");
 		clear_dir("metadata/");
 		initialize_chunk_info("virtual memory");
@@ -141,7 +141,7 @@ void initialization() {
 		// have to do the following crash recovery:
 		server.load_checkpointing();         // load checkpointing
 		server.replay_log();                 // replay log
-	}	
+	}
 }
 
 void parse_ip_and_port(string s)
@@ -163,7 +163,7 @@ void confirm_identity(char feedback []) {
 		isPrimary = true;
 	} else {
 
-		// parse ip and port 
+		// parse ip and port
 		string ip_port = s.substr(2, s.size() - 1);
 		parse_ip_and_port(ip_port);
 
@@ -173,7 +173,7 @@ void confirm_identity(char feedback []) {
 			cout << "primary ip: " << primary_ip << endl;
 			print_time();
 			cout << "primary port: " << primary_port << endl;
-		}				
+		}
 		isPrimary = false;
 	}
 }
@@ -203,14 +203,14 @@ void contact_master() {
 
     // ask master for identity P or S
     string ask_master = "!" + to_string(node_id);
-    sendto(udp_fd, ask_master.c_str(), ask_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));   
+    sendto(udp_fd, ask_master.c_str(), ask_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));
 
     struct sockaddr_in src;
     socklen_t srcSize = sizeof(src);
     char feedback[255];
     int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0, (struct sockaddr*)&src, &srcSize);
-    feedback[rlen] = 0;   
-    
+    feedback[rlen] = 0;
+
     // if -v, print conversation with master
 	if (opt_v) {
 		print_time();
@@ -366,14 +366,14 @@ string parse_command(char* line)
 		string c(command);
 		delete [] command;
 		return c;
-	}	
+	}
 }
 
 /* This thread worker does checkpointing periodically. */
 void *cp_worker (void *arg) {
 
 	while (true) {
-		sleep(CP_INTERVAL);              
+		sleep(CP_INTERVAL);
 		server.checkpointing();
 
 		// If -v
@@ -402,7 +402,7 @@ void *worker (void *arg) {
 	char *temp_buffer = new char[1];
 	temp_buffer[0] = '\0';
 
-	// Executes until user quits. 
+	// Executes until user quits.
 	while (!isQuit) {
 
 		// Reads msg into buffer
@@ -416,7 +416,7 @@ void *worker (void *arg) {
 			fprintf(stderr, "[%d] C: %s", comm_fd, buffer);
 		}
 
-		// Counts the number of chars in current buffer. 
+		// Counts the number of chars in current buffer.
 		counter += nread;
 
 		if (nread > 0) {
@@ -435,7 +435,7 @@ void *worker (void *arg) {
 				strncpy(line, buffer, index + 2);
 				line[index + 2] = '\0';
 
-				// Updates buffer 
+				// Updates buffer
 				temp_buf_size = counter - index - 2;
 				update_buffer(temp_buf_size, index, buffer, temp_buffer);
 
@@ -445,7 +445,8 @@ void *worker (void *arg) {
 				// Extracts command
 				string command = parse_command(line);
 
-				// Executes commands 
+				isQuit = true;
+				// Executes commands
 				if(command.compare("put") == 0) {
 					server.put(line, true, comm_fd);
 					continue;
@@ -480,7 +481,7 @@ void *worker (void *arg) {
 
 			} // end while (still have lines end with <CRLF>)
 
-			// Stores the info in the temporary buffer if no <CR><LF> found 
+			// Stores the info in the temporary buffer if no <CR><LF> found
 			if(strstr(buffer, "\r\n") <= 0) {
 				store_incomplete_line(temp_buf_size, temp_buffer, buffer);
 			}
@@ -572,8 +573,8 @@ int main(int argc, char *argv[])
 		}
 
 		// Sends greeting message
-		const char* greeting = "+OK chunkserver ready [localhost]\r\n";
-		send(*fd, greeting, strlen(greeting),0);
+		// const char* greeting = "+OK chunkserver ready [localhost]\r\n";
+		// send(*fd, greeting, strlen(greeting),0);
 
 		// Creates a signal thread to deal with signals
 		pthread_t signal_thread;
@@ -581,7 +582,7 @@ int main(int argc, char *argv[])
 		int s;
 
 		// Block SIGINT; other threads created by main()
-		// will inherit a copy of the signal mask. 
+		// will inherit a copy of the signal mask.
 		sigemptyset(&set);
 		sigaddset(&set, SIGINT);
 		s = pthread_sigmask(SIG_BLOCK, &set, NULL);

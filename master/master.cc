@@ -136,7 +136,8 @@ int main(int argc, char *argv[]) {
     if (command.compare("?") == 0) {
       int key = hash_str(content.c_str());
       rep = get_backend_info(key);
-      cout << rep << endl;
+      cout << "Object key:" << key << "|"
+           << "Server" << rep << endl;
     } else if (command.compare("!") == 0) {
       int id = atoi(content.c_str());
       Pair pair;

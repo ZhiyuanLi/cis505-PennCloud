@@ -1,15 +1,15 @@
-#include <stdio.h>
-#include <time.h>
 #include <arpa/inet.h>
 #include <iostream>
-#include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "../master/config.h"
 #include "constants.h"
-#include "utils.h"
 #include "store.h"
+#include "utils.h"
 
 using namespace std;
 
@@ -31,13 +31,15 @@ struct sockaddr_in find_backend(string username) {
 
   // ask master for backend's ip:port
   string contact_master = "?" + username;
-  sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));
+  sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0,
+         (struct sockaddr *)&dest, sizeof(dest));
   cout << "To master: " << contact_master << endl;
 
   struct sockaddr_in src;
   socklen_t srcSize = sizeof(src);
   char feedback[50];
-  int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0, (struct sockaddr*)&src, &srcSize);
+  int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0,
+                      (struct sockaddr *)&src, &srcSize);
   feedback[rlen] = 0;
   cout << "From master: " << feedback << endl;
 
@@ -52,42 +54,56 @@ struct sockaddr_in find_backend(string username) {
   return backend;
 }
 
-//send one message to backend
-char* send_to_backend(string message, struct sockaddr_in backend){
+// send one message to backend
+vector<string> send_to_backend(string message, struct sockaddr_in backend) {
   int sockfd = socket(PF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
     debug(1, "Fail to open a socket!\n");
-    return NULL;
   }
-  connect(sockfd, (struct sockaddr*) &backend, sizeof(backend));
+  connect(sockfd, (struct sockaddr *)&backend, sizeof(backend));
   char m[message.length() + 1];
   strcpy(m, message.c_str());
 
   debug(1, "[%d] Send to backend: %s", sockfd, m);
   do_write(sockfd, m, strlen(m));
 
-  int bufsize = 1000000000;
-  char *buffer = new char [bufsize];
-  int rlen = recv(sockfd, buffer, bufsize - 1, 0);
-  buffer[rlen]='\0';
+  vector<string> rep;
+  string line = read_line(sockfd);
 
-  debug(1, "[%d] Receive from backend: %s", sockfd, buffer);
+  debug(1, "[%d] Receive from backend: %s\n", sockfd, line.c_str());
 
-  return buffer;
+  while (!line.empty()) {
+    rep.push_back(line);
+    line = read_line(sockfd);
+    debug(1, "%s\n", line.c_str());
+  }
+
+  close(sockfd);
+
+  return rep;
 }
 
 void add_user(string username, string password) {
-  string message = "put "+username+",pwd,"+password+"\r\n";
+  string message = "put " + username + ",pwd," + password + "\r\n";
   send_to_backend(message, find_backend(username));
 }
 
 bool is_user_exist(string username) {
-  return users.count(username) == 1 ? true : false;
+  string message = "get " + username + ",pwd\r\n";
+  vector<string> rep = send_to_backend(message, find_backend(username));
+  if (rep.at(0).compare(0, 3, "+OK") == 0) {
+    return true;
+  }
+  return false;
 }
 
 bool is_login_valid(string username, string password) {
-  if (users.count(username) == 1) {
-    return users[username].compare(password) == 0;
+  string message = "get " + username + ",pwd\r\n";
+  vector<string> rep = send_to_backend(message, find_backend(username));
+  if (rep.at(0).compare(0, 3, "+OK") == 0) {
+    if (rep.at(1) == password) {
+      return true;
+    }
   }
   return false;
 }

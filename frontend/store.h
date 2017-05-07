@@ -2,6 +2,7 @@
 #define STORE_H
 
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -9,7 +10,7 @@ using namespace std;
 struct sockaddr_in find_backend(string username);
 
 //send one message to backend
-char* send_to_backend(string message, struct sockaddr_in backend);
+vector<string> send_to_backend(string message, struct sockaddr_in backend);
 
 void add_user(string username, string password);
 

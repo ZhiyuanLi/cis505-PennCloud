@@ -32,7 +32,7 @@ const static char *UPLOADED_DIR = "uploaded_files/";
 
 using namespace std;
 
-static map<string, string> users; // key: username; value:password
+// static map<string, string> users; // key: username; value:password
 // store session id and its creation time, session id same as username
 static map<string, time_t> sessions;
 
