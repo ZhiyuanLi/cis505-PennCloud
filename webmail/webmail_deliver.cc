@@ -15,83 +15,21 @@
 #include <unistd.h>
 #include <signal.h>
 #include <regex>
-#include <mutex>
 #include <set>
 #include <vector>
 #include <cstddef>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
-#include "client_header.h"
+#include "server_header.h"
 using namespace std;
 
 #define BUFFER_SIZE 1024
-
-struct Message{
-	int messageID;
-	int unmark_flag = 0;
-	int begin_line;
-	int end_line;
-};
 
 #define MAX_Message_Num 1000
 
 struct Message MsgQueue[MAX_Message_Num];
 
-char* parse_record (unsigned char *buffer, size_t r,
-		const char *section, ns_sect s,
-		int idx, ns_msg *m) {
-
-	ns_rr rr;
-	int k = ns_parserr (m, s, idx, &rr);
-	if (k == -1) {
-		std::cerr << errno << " " << strerror (errno) << "\n";
-		return 0;
-	}
-
-	std::cout << section << " " << ns_rr_name (rr) << " "
-			<< ns_rr_type (rr) << " " << ns_rr_class (rr)<< " "
-			<< ns_rr_ttl (rr) << " ";
-
-	const size_t size = NS_MAXDNAME;
-	unsigned char name[size];
-	int t = ns_rr_type (rr);
-
-	const u_char *data = ns_rr_rdata (rr);
-	if (t == T_MX) {
-		cout<<"t == T_MX"<<endl;
-		int pref = ns_get16 (data);
-		ns_name_unpack (buffer, buffer + r, data + sizeof (u_int16_t),
-				name, size);
-		char name2[size];
-		ns_name_ntop (name, name2, size);
-		std::cout << pref << " " << name2;
-		return name2;
-	}
-	else if (t == T_A) {
-		cout<<"t == T_A"<<endl;
-		unsigned int addr = ns_get32 (data);
-		struct in_addr in;
-		in.s_addr = ntohl (addr);
-		char *a = inet_ntoa (in);
-		//		std::cout << a;
-		cout<<"return = "<<a<<endl;
-		return a;
-	}
-	else if (t == T_NS) {
-		cout<<"t == T_NS"<<endl;
-		ns_name_unpack (buffer, buffer + r, data, name, size);
-		char name2[size];
-		ns_name_ntop (name, name2, size);
-		std::cout << name2;
-		return name2;
-	}
-	else {
-		std::cout << "unhandled record";
-	}
-
-	std::cout << "\n";
-}
 int main(){
 
 	//Sample email format:
