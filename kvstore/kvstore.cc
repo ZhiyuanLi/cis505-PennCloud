@@ -408,7 +408,7 @@ void *worker (void *arg) {
 		// Reads msg into buffer
 		char *line = new char [bufsize];
 		int nread = recv(comm_fd, line, bufsize - 1, 0);
-        line[nread]='\0';
+    line[nread]='\0';
 
 		// if -v
 		if (opt_v) {
@@ -552,6 +552,10 @@ int main(int argc, char *argv[])
 	// Puts a socket into the listening state
 	listen(listen_fd, 10);
 
+	// Creates a signal thread to deal with checkpointing
+	pthread_t cp_thread;
+	pthread_create(&cp_thread, NULL, cp_worker, NULL);
+
 	while (true) {
 		struct sockaddr_in clientaddr;
 		socklen_t clientaddrlen = sizeof(clientaddr);
@@ -591,10 +595,6 @@ int main(int argc, char *argv[])
 		s = pthread_create(&signal_thread, NULL, &sig_thread, (void *) &set);
 		if (s != 0)
 		    handle_error_en(s, "pthread_create");
-
-		// Creates a signal thread to deal with checkpointing
-		pthread_t cp_thread;
-		pthread_create(&cp_thread, NULL, cp_worker, fd);
 
 		// Dispatch tasks to multiple threads
 		pthread_t thread;

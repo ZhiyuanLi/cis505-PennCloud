@@ -49,10 +49,9 @@ bool check_server_state(string ip, int port) {
   if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
     state = true;
     cout << "server " << ip << ":" << port << " is active" << endl;
-    char m[] = "quit\r\n";
-
-    debug(1, "[%d] Send to backend: %s", sockfd, m);
-    do_write(sockfd, m, strlen(m));
+    // char m[] = "quit\r\n";
+    // debug(1, "[%d] Send to backend: %s", sockfd, m);
+    // do_write(sockfd, m, strlen(m));
   } else {
     state = false;
     cout << "server " << ip << ":" << port << " is down" << endl;
