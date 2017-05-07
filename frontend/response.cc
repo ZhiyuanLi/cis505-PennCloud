@@ -161,7 +161,7 @@ void Response::reg(Request req) {
         printf("Error creating directory!n");
         exit(1);
     }
-    curr_user = (char*) username.c_str();
+    curr_user = (char*) (username + "/").c_str();
 
     if (is_user_exist(username)) {
       this->body = get_file_content_as_string("html/user-already-exist.html");
