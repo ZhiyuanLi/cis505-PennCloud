@@ -23,5 +23,6 @@ void expectRemoteClose(struct connection *conn);
 void initializeBuffers(struct connection *conn, int bufferSizeBytes);
 void closeConnection(struct connection *conn);
 void freeBuffers(struct connection *conn);
+void DoRead(struct connection *conn);
 
 #endif /* defined(__client_header_h__) */

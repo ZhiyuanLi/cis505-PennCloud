@@ -288,13 +288,13 @@ void *worker(void *arg)
 								ofstream userfile;
 								userfile.open(*it,ios::app);
 								userfile<< "##"<<digestBuffer<<endl;
-								userfile<< (now->tm_year + 1900) << '-'
-										<< (now->tm_mon + 1) << '-'
-										<<  now->tm_mday << '-'
-										<<  now->tm_hour << '-'
-										<<  now->tm_min << '-'
-										<<  now->tm_sec
-										<< endl;
+//								userfile<< (now->tm_year + 1900) << '-'
+//										<< (now->tm_mon + 1) << '-'
+//										<<  now->tm_mday << '-'
+//										<<  now->tm_hour << '-'
+//										<<  now->tm_min << '-'
+//										<<  now->tm_sec
+//										<< endl;
 								userfile<<lines.str();
 								userfile.close();
 							}

@@ -23,9 +23,9 @@
 #include <arpa/nameser.h>
 #include <resolv.h>
 #include "client_header.h"
-
 using namespace std;
 
+#define BUFFER_SIZE 1024
 
 struct Message{
 	int messageID;
@@ -38,7 +38,7 @@ struct Message{
 
 struct Message MsgQueue[MAX_Message_Num];
 
-void parse_record (unsigned char *buffer, size_t r,
+char* parse_record (unsigned char *buffer, size_t r,
 		const char *section, ns_sect s,
 		int idx, ns_msg *m) {
 
@@ -46,11 +46,11 @@ void parse_record (unsigned char *buffer, size_t r,
 	int k = ns_parserr (m, s, idx, &rr);
 	if (k == -1) {
 		std::cerr << errno << " " << strerror (errno) << "\n";
-		return;
+		return 0;
 	}
 
 	std::cout << section << " " << ns_rr_name (rr) << " "
-			<< ns_rr_type (rr) << " " << ns_rr_class (rr)
+			<< ns_rr_type (rr) << " " << ns_rr_class (rr)<< " "
 			<< ns_rr_ttl (rr) << " ";
 
 	const size_t size = NS_MAXDNAME;
@@ -59,25 +59,32 @@ void parse_record (unsigned char *buffer, size_t r,
 
 	const u_char *data = ns_rr_rdata (rr);
 	if (t == T_MX) {
+		cout<<"t == T_MX"<<endl;
 		int pref = ns_get16 (data);
 		ns_name_unpack (buffer, buffer + r, data + sizeof (u_int16_t),
 				name, size);
 		char name2[size];
 		ns_name_ntop (name, name2, size);
 		std::cout << pref << " " << name2;
+		return name2;
 	}
 	else if (t == T_A) {
+		cout<<"t == T_A"<<endl;
 		unsigned int addr = ns_get32 (data);
 		struct in_addr in;
 		in.s_addr = ntohl (addr);
 		char *a = inet_ntoa (in);
-		std::cout << a;
+		//		std::cout << a;
+		cout<<"return = "<<a<<endl;
+		return a;
 	}
 	else if (t == T_NS) {
+		cout<<"t == T_NS"<<endl;
 		ns_name_unpack (buffer, buffer + r, data, name, size);
 		char name2[size];
 		ns_name_ntop (name, name2, size);
 		std::cout << name2;
+		return name2;
 	}
 	else {
 		std::cout << "unhandled record";
@@ -93,7 +100,7 @@ int main(){
 	//2017-5-1-9-35-15
 	//From: Benjamin Franklin <benjamin.franklin@localhost>
 	//To: Linh Thi Xuan Phan <linhphan@localhost>
-	//Date: Fri, 21 Oct 2016 18:29:11 -0400 (not necessary, appended by user)
+	//Date: Fri, 21 Oct 2016 18:29:11 -0400
 	//Subject: Testing my new email account
 	//
 	//Linh,
@@ -142,8 +149,6 @@ int main(){
 		while(getline(file, line)){
 
 			lineNo++;
-//			cout<<"MsgQueue[i].begin_line = "<<MsgQueue[i].begin_line<<endl;
-//			cout<<"MsgQueue[i].end_line = "<<MsgQueue[i].end_line<<endl;
 			if (lineNo > MsgQueue[i].begin_line && lineNo < MsgQueue[i].end_line){
 				if (line.compare(0,3,"To:") == 0){
 
@@ -157,11 +162,150 @@ int main(){
 						found1=line.find_first_of("<",found1+1);
 						found2=line.find_first_of(">",found2+1);
 					}
+
+					//connect to receiver and send mail
 					for (int j = 0; j < rcvr_list.size(); j++){
+						for(set<string>::iterator it = rcvr_list.begin(); it != rcvr_list.end();it++){
+							string domain_buffer = *it;
+
+							std::size_t found = domain_buffer.find_first_of("@");
+
+							string server_name  = domain_buffer.substr(found+1); // extract server name
+							const char* host = server_name.c_str();
+							unsigned char host_buffer[BUFFER_SIZE];
+							int r_size = res_query(host,C_IN,T_MX, host_buffer, BUFFER_SIZE);
+
+							if(r_size == -1){
+								char err_host[] = "ERR: Cannot find host server!";
+								cout<<err_host<<endl;
+							}
+							else if(r_size == static_cast<int> (BUFFER_SIZE)){
+								char err[] = "ERR: Buffer too small, finding host server truncated!";
+								cout<<err<<endl;
+							}
+							HEADER *hdr = reinterpret_cast<HEADER*> (host_buffer);
+							if (hdr->rcode != NOERROR) {
+
+								std::cerr << "Error: ";
+								switch (hdr->rcode) {
+								case FORMERR:
+									std::cerr << "Format error";
+									break;
+								case SERVFAIL:
+									std::cerr << "Server failure";
+									break;
+								case NXDOMAIN:
+									std::cerr << "Name error";
+									break;
+								case NOTIMP:
+									std::cerr << "Not implemented";
+									break;
+								case REFUSED:
+									std::cerr << "Refused";
+									break;
+								default:
+									std::cerr << "Unknown error";
+									break;
+								}
+							}
+
+							//print information of the answers
+							int question = ntohs (hdr->qdcount);
+							int answers = ntohs (hdr->ancount);
+							int nameservers = ntohs (hdr->nscount);
+							int addrrecords = ntohs (hdr->arcount);
+
+							ns_msg m;
+							int k = ns_initparse (host_buffer, r_size, &m);
+							if (k == -1) {
+								std::cerr << errno << " " << strerror (errno) << "\n";
+							}
+
+							for (int i = 0; i < question; ++i) {
+								ns_rr rr;
+								int k = ns_parserr (&m, ns_s_qd, i, &rr);
+								if (k == -1) {
+									std::cerr << errno << " " << strerror (errno) << "\n";
+								}
+							}
+
+							char* IP_address = parse_record (host_buffer, r_size, "addrrecords", ns_s_ar, 2, &m);
+
+							cout<<"IP_address = "<<IP_address<<endl;
+
+							// connect to mail server
+
+							struct connection conn;
+
+							conn.fd = -1;
+							conn.bufferSizeBytes = BUFFER_SIZE;
+							conn.bytesInBuffer = 0;
+							conn.buf = (char*)malloc(BUFFER_SIZE);
+
+							conn.fd = socket(PF_INET, SOCK_STREAM, 0);
+							if (conn.fd < 0)
+								panic("Cannot open socket (%s)", strerror(errno));
+
+							struct sockaddr_in servaddr;
+							bzero(&servaddr, sizeof(servaddr));
+							servaddr.sin_family=AF_INET;
+							servaddr.sin_port=htons(25);
+							inet_pton(AF_INET, IP_address, &(servaddr.sin_addr));
+
+							if (connect(conn.fd, (struct sockaddr*)&servaddr, sizeof(servaddr))<0)
+								panic("Cannot connect to localhost:10000 (%s)", strerror(errno));
+
+							conn.bytesInBuffer = 0;
+
+							expectToRead(&conn, "220 localhost *");
+							expectNoMoreData(&conn);
+
+							writeString(&conn, "HELO tester\r\n");
+							expectToRead(&conn, "250 localhost");
+							expectNoMoreData(&conn);
+
+							// Specify the sender and the receipient (with one incorrect recipient)
+
+							writeString(&conn, "MAIL FROM:<atrueworld@localhost.com>\r\n");
+							expectToRead(&conn, "250 OK");
+							expectNoMoreData(&conn);
+
+							writeString(&conn, "RCPT TO:<mengjin@seas.upenn.edu>\r\n");
+							expectToRead(&conn, "250 OK");
+							expectNoMoreData(&conn);
+
+							// Send the actual data
+
+							writeString(&conn, "DATA\r\n");
+							expectToRead(&conn, "354 *");
+							expectNoMoreData(&conn);
+
+							writeString(&conn, "From: Benjamin Franklin <atrueworld@localhost.com>\r\n");
+							writeString(&conn, "To: Mengjin <mengjin@seas.upenn.edu>\r\n");
+							writeString(&conn, "Date: Wed Dec 28 06:47:03 2016 EST\r\n");
+							writeString(&conn, "Subject: Testing my new email account\r\n");
+							writeString(&conn, "\r\n");
+							writeString(&conn, "Linh,\r\n");
+							writeString(&conn, "\r\n");
+							writeString(&conn, "I just wanted to see whether my new email account works.\r\n");
+							writeString(&conn, "\r\n");
+							writeString(&conn, "        - Ben\r\n");
+							expectNoMoreData(&conn);
+							writeString(&conn, ".\r\n");
+							expectToRead(&conn, "250 OK");
+							expectNoMoreData(&conn);
+
+							// Close the connection
+
+							writeString(&conn, "QUIT\r\n");
+							expectToRead(&conn, "221 *");
+							expectRemoteClose(&conn);
+							closeConnection(&conn);
+
+							freeBuffers(&conn);
 
 
-
-
+						}
 					}
 				}
 				rcvr_list.clear();
@@ -172,144 +316,7 @@ int main(){
 	}
 
 }
-		/*
-		// Connect to server
-		struct connection conn1;
-		initializeBuffers(&conn1, 5000);
 
-		connectToPort(&conn1, atoi(argv[1]));
-		expectToRead(&conn1, "220 localhost *");
-		expectNoMoreData(&conn1);
-
-		writeString(&conn1, "HELO tester\r\n");
-		expectToRead(&conn1, "250 localhost");
-		expectNoMoreData(&conn1);
-
-		// Specify the sender and the receipient (with one incorrect recipient)
-
-		writeString(&conn1, "MAIL FROM:<benjamin.franklin@localhost>\r\n");
-		expectToRead(&conn1, "250 OK");
-		expectNoMoreData(&conn1);
-
-		writeString(&conn1, "RCPT TO:<linhphan@gmail.com>\r\n");
-		expectToRead(&conn1, "250 OK");
-		expectNoMoreData(&conn1);
-
-		writeString(&conn1, "RCPT TO:<nonexistent.mailbox@localhost>\r\n");
-		expectToRead(&conn1, "550 *");
-		expectNoMoreData(&conn1);
-
-		// Send the actual data
-
-		writeString(&conn1, "DATA\r\n");
-		expectToRead(&conn1, "354 *");
-		expectNoMoreData(&conn1);
-
-		writeString(&conn1, "From: Benjamin Franklin <benjamin.franklin@localhost>\r\n");
-		writeString(&conn1, "To: Linh Thi Xuan Phan <linhphan@localhost>\r\n");
-		writeString(&conn1, "Date: Fri, 21 Oct 2016 18:29:11 -0400\r\n");
-		writeString(&conn1, "Subject: Testing my new email account\r\n");
-		writeString(&conn1, "\r\n");
-		writeString(&conn1, "Linh,\r\n");
-		writeString(&conn1, "\r\n");
-		writeString(&conn1, "I just wanted to see whether my new email account works.\r\n");
-		writeString(&conn1, "\r\n");
-		writeString(&conn1, "        - Ben\r\n");
-		expectNoMoreData(&conn1);
-		writeString(&conn1, ".\r\n");
-		expectToRead(&conn1, "250 OK");
-		expectNoMoreData(&conn1);
-
-		// Close the connection
-
-		writeString(&conn1, "QUIT\r\n");
-		expectToRead(&conn1, "221 *");
-		expectRemoteClose(&conn1);
-		closeConnection(&conn1);
-
-		freeBuffers(&conn1);
-
-	}
-
-
-	string domain_buffer;
-
-
-
-	string temp = domain_buffer.substr(found+1); // extract server name
-	size_t found2 = temp.find_last_of(">");
-	string server_name = temp.substr(0,found2);
-	const char* host = server_name.c_str();
-	unsigned char host_buffer[BUFFER_SIZE];
-	int r_size = res_query(host,C_IN,T_MX, host_buffer, BUFFER_SIZE);
-	if(r_size == -1){
-		char err_host[] = "ERR: Cannot find host server!";
-		dowrite(comm_fd, err_host, sizeof(err_host)-1);
-	}
-	else if(r_size == static_cast<int> (BUFFER_SIZE)){
-		char err[] = "ERR: Buffer too small, finding host server truncated!";
-		dowrite(comm_fd, err, sizeof(err)-1);
-	}
-	HEADER *hdr = reinterpret_cast<HEADER*> (host_buffer);
-	if (hdr->rcode != NOERROR) {
-
-		std::cerr << "Error: ";
-		switch (hdr->rcode) {
-		case FORMERR:
-			std::cerr << "Format error";
-			break;
-		case SERVFAIL:
-			std::cerr << "Server failure";
-			break;
-		case NXDOMAIN:
-			std::cerr << "Name error";
-			break;
-		case NOTIMP:
-			std::cerr << "Not implemented";
-			break;
-		case REFUSED:
-			std::cerr << "Refused";
-			break;
-		default:
-			std::cerr << "Unknown error";
-			break;
-		}
-	}
-	int question = ntohs (hdr->qdcount);
-	int answers = ntohs (hdr->ancount);
-	int nameservers = ntohs (hdr->nscount);
-	int addrrecords = ntohs (hdr->arcount);
-
-	std::cout << "Reply: question: " << question << ", answers: " << answers
-			<< ", nameservers: " << nameservers
-			<< ", address records: " << addrrecords << "\n";
-	ns_msg m;
-	int k = ns_initparse (host_buffer, r_size, &m);
-	if (k == -1) {
-		std::cerr << errno << " " << strerror (errno) << "\n";
-	}
-
-	for (int i = 0; i < question; ++i) {
-		ns_rr rr;
-		int k = ns_parserr (&m, ns_s_qd, i, &rr);
-		if (k == -1) {
-			std::cerr << errno << " " << strerror (errno) << "\n";
-		}
-		std::cout << "question " << ns_rr_name (rr) << " "
-				<< ns_rr_type (rr) << " " << ns_rr_class (rr) << "\n";
-	}
-	for (int i = 0; i < answers; ++i) {
-		parse_record (host_buffer, r_size, "answers", ns_s_an, i, &m);
-	}
-
-	for (int i = 0; i < nameservers; ++i) {
-		parse_record (host_buffer, r_size, "nameservers", ns_s_ns, i, &m);
-	}
-
-	for (int i = 0; i < addrrecords; ++i) {
-		parse_record (host_buffer, r_size, "addrrecords", ns_s_ar, i, &m);
-	}
-		 */
 
 
 

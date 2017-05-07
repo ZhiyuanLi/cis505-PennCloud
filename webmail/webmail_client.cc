@@ -24,31 +24,31 @@ int main(int argc, char *argv[])
   // Open a connection and exchange greeting messages
 
   connectToPort(&conn1, atoi(argv[1]));
-  expectToRead(&conn1, "220 localhost *");
+  DoRead(&conn1);
   expectNoMoreData(&conn1);
 
   writeString(&conn1, "HELO tester\r\n");
-  expectToRead(&conn1, "250 localhost");
+  DoRead(&conn1);
   expectNoMoreData(&conn1);
 
   // Specify the sender and the receipient (with one incorrect recipient)
 
   writeString(&conn1, "MAIL FROM:<benjamin.franklin@localhost>\r\n");
-  expectToRead(&conn1, "250 OK");
+  DoRead(&conn1);
   expectNoMoreData(&conn1);
 
   writeString(&conn1, "RCPT TO:<mengjin@seas.upenn.edu>\r\n");
-  expectToRead(&conn1, "250 OK");
+  DoRead(&conn1);
   expectNoMoreData(&conn1);
 
   writeString(&conn1, "RCPT TO:<nonexistent.mailbox@localhost>\r\n");
-  expectToRead(&conn1, "550 *");
+  DoRead(&conn1);
   expectNoMoreData(&conn1);
 
   // Send the actual data
 
   writeString(&conn1, "DATA\r\n");
-  expectToRead(&conn1, "354 *");
+  DoRead(&conn1);
   expectNoMoreData(&conn1);
 
   writeString(&conn1, "From: Benjamin Franklin <benjamin.franklin@localhost>\r\n");
@@ -63,13 +63,13 @@ int main(int argc, char *argv[])
   writeString(&conn1, "        - Ben\r\n");
   expectNoMoreData(&conn1);
   writeString(&conn1, ".\r\n");
-  expectToRead(&conn1, "250 OK");
+  DoRead(&conn1);
   expectNoMoreData(&conn1);
 
   // Close the connection
 
   writeString(&conn1, "QUIT\r\n");
-  expectToRead(&conn1, "221 *");
+  DoRead(&conn1);
   expectRemoteClose(&conn1);
   closeConnection(&conn1);
 
