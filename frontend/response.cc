@@ -12,6 +12,7 @@
 #include "request.h"
 #include "response.h"
 #include "store.h"
+#include "../webmail/server_header.h"
 
 using namespace std;
 
@@ -324,7 +325,7 @@ void Response::create_new_folder(Request req) {
   (this->headers)[CONTENT_TYPE] = "text/html";
   string foldername = req.body.substr(req.body.find('=') + 1);
   string dir(UPLOADED_DIR);
-  foldername += ".folder"；
+  foldername += ".folder";
   store_file(dir, foldername, "empty");
 
   // send to KV store
