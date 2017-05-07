@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <arpa/inet.h>
 
 #include "constants.h"
 #include "utils.h"
@@ -15,7 +16,7 @@
 using namespace std;
 
 // username
-string username;
+string user_name;
 
 Response::Response(Request req) {
   this->http_version = req.http_version;
@@ -39,7 +40,7 @@ Response::Response(Request req) {
   }
 
   // user not login
-  else if (!is_already_login(req.cookies, username)) {
+  else if (!is_already_login(req.cookies, user_name)) {
     login(req);
   }
 
@@ -225,7 +226,13 @@ void Response::handle_upload(Request req) {
   (this->headers)[CONTENT_TYPE] = "text/html";
   string dir(UPLOADED_DIR);
   string filename(extract_file_name(req.body));
-  store_file(dir, filename, extract_file_content(req.body, req.content_length));
+  string file_content(extract_file_content(req.body, req.content_length));
+  store_file(dir, filename, file_content);
+
+  // send to KV store
+  string message("put " + user_name + "," + filename + "," + file_content + "\r\n");
+  send_to_backend(message, user_name);
+
   this->body = get_file_content_as_string("html/upload.html");
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
