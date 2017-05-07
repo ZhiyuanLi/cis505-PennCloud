@@ -536,11 +536,10 @@ void *worker (void *arg) {
 		counter += nread;
 
 		// Record secondary's fd
-		string s(buffer);
+		string s(line);
 		if (s.compare("S\r\n") == 0) {
 			secondary_fd = comm_fd;
 			check_primary_holdback();
-			continue;
 		}		
 
 		if (nread > 0) {
@@ -574,13 +573,11 @@ void *worker (void *arg) {
 			}
 
 			else if (command.compare("rename") == 0) {
-				server.rename(line, comm_fd, 0);
-				continue;
+				//server.rename(line, comm_fd, 0);
 			}
 
 			else if (command.compare("done") == 0) {
 				handle_secondary_report(line);
-				continue;
 			}
 
 			else if (command.compare("quit") == 0) {
@@ -617,10 +614,6 @@ int main(int argc, char *argv[])
 	contact_master();
 
 	initialization();
-
-	// Creates a signal thread to deal with checkpointing
-	pthread_t cp_thread;
-	pthread_create(&cp_thread, NULL, cp_worker, NULL);
 
 	if (isPrimary) {
 		print_time();

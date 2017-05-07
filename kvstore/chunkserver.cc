@@ -321,7 +321,6 @@ void Chunkserver::replay_log() {
 }
 
 void Chunkserver::send_to_secondary(char* line, string user) {
-	cout << "in send to secondary" << endl;
 	int sequence = seq_num_records[user] + 1;
 	seq_num_records[user] = sequence;
 	MsgPair *msg_held = new MsgPair();
@@ -331,9 +330,7 @@ void Chunkserver::send_to_secondary(char* line, string user) {
 	primary_holdback[user].push_back(*msg_held);
 	string temp(line);
 	string msg_to_s = to_string(sequence) + "," + temp;
-	cout << "send to S: " << msg_to_s << endl;
 	send(secondary_fd, msg_to_s.c_str(), msg_to_s.size(), 0);
-	cout << "sent" << endl;
 }
 
 /* PUT r,c,v */
