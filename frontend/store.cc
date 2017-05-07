@@ -70,14 +70,15 @@ vector<string> send_to_backend(string message, struct sockaddr_in backend) {
   vector<string> rep;
   string line = read_line(sockfd);
 
-  debug(1, "[%d] Receive from backend: %s\n", sockfd, line.c_str());
+  debug(1, "[%d] Receive from backend:\n", sockfd);
 
   while (!line.empty()) {
+    debug(1, "%d:[%s]\n", line.length(), line.c_str());
     rep.push_back(line);
     line = read_line(sockfd);
-    debug(1, "%s\n", line.c_str());
   }
 
+  debug(1, "==================\n");
   close(sockfd);
 
   return rep;

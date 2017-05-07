@@ -59,7 +59,7 @@ bool check_server_state(string ip, int port) {
   }
 
   close(sockfd);
-  return true;
+  return state;
 }
 
 // get corresponding next-higher backend server id
