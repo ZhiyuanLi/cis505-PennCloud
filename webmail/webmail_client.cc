@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "client_header.h"
+#include "server_header.h"
 
 int main(int argc, char *argv[])
 {
@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
 
   // Open a connection and exchange greeting messages
 
-  connectToPort(&conn1, atoi(argv[1]));
+  connectToPort(&conn1, 2300);
   DoRead(&conn1);
   expectNoMoreData(&conn1);
 
