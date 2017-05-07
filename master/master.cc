@@ -151,8 +151,19 @@ int main(int argc, char *argv[]) {
         rep = "P";
       } else {
         pair = servers[id];
-        pair.secondary = server;
-        rep = "P=" + pair.primary.ip + ":" + to_string(pair.primary.port);
+        if (!check_server_state(pair.primary.ip, pair.primary.port)) {
+          if (pair.secondary.ip.empty()) {
+            pair.primary = server;
+            rep = "P";
+          } else {
+            pair.primary = pair.secondary;
+            pair.secondary = server;
+            rep = "P=" + pair.primary.ip + ":" + to_string(pair.primary.port);
+          }
+        } else {
+          pair.secondary = server;
+          rep = "P=" + pair.primary.ip + ":" + to_string(pair.primary.port);
+        }
       }
       servers[id] = pair;
     }
