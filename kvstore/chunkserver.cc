@@ -28,12 +28,22 @@
 
 using namespace std;
 
+struct MsgPair {
+	int sq;
+	string msg;
+};
+
 extern map<string, vector<int>> chunk_info;
 extern map<string, vector<vector<int>>> virmem_meta;
 extern map<string, vector<vector<int>>> cp_meta;
+extern map<string, int> seq_num_records;
+extern map<string, vector<MsgPair>> primary_holdback;
+extern bool isPrimary;
+extern int secondary_fd;
 extern bool opt_v;
 
-Chunkserver::Chunkserver(int capacity) {               //TODO: locking for multi-threaded read and write								 
+
+Chunkserver::Chunkserver(int capacity) {                     //TODO: locking for multi-threaded read and write								 
 	this->capacity = capacity;                         
 	this->lru = new LRUCache(MEMORY_CAPACITY);               
 }
@@ -293,11 +303,11 @@ void Chunkserver::replay_log() {
 
 			// execute command
 			if(command.compare("put") == 0) {
-				put(record, false, -1);                         // comm_fd = -1 here and below			
+				put(record, false, -1, 0);                         // comm_fd = -1 here and below			
 			} else if(command.compare("cput") == 0) {
-				cput(record, false, -1); 
+				cput(record, false, -1, 0); 
 			} else if(command.compare("dele") == 0) {
-				dele(record, false, -1);                 				
+				dele(record, false, -1, 0);                 				
 			} else {
 				if (opt_v) {
 					print_time();
@@ -310,8 +320,25 @@ void Chunkserver::replay_log() {
 	} 
 }
 
+void Chunkserver::send_to_secondary(char* line, string user) {
+	cout << "in send to secondary" << endl;
+	int sequence = seq_num_records[user] + 1;
+	seq_num_records[user] = sequence;
+	MsgPair *msg_held = new MsgPair();
+	msg_held->sq = sequence;
+	string operation(line);
+	msg_held->msg = operation;
+	primary_holdback[user].push_back(*msg_held);
+	string temp(line);
+	string msg_to_s = to_string(sequence) + "," + temp;
+	cout << "send to S: " << msg_to_s << endl;
+	send(secondary_fd, msg_to_s.c_str(), msg_to_s.size(), 0);
+	cout << "sent" << endl;
+}
+
 /* PUT r,c,v */
-void Chunkserver::put(char* &line, bool external, int comm_fd) {
+void Chunkserver::put(char* &line, bool external, int comm_fd, int seq_num) {
+
 	char *arguments = new char[strlen(line) - 4 + 1];
 	strncpy(arguments, line + 4, strlen(line) - 4);
 	arguments[strlen(line) - 4] = '\0';
@@ -320,13 +347,18 @@ void Chunkserver::put(char* &line, bool external, int comm_fd) {
 
 	vector<string> rcv;
 	parse_line(to_be_parsed, rcv, 3);
+
 	if (rcv.size() == 3) {
 		string user = rcv.at(0);
 		string filename = rcv.at(1);
 		string value = rcv.at(2);
-		lru->put(user, filename, value, comm_fd, true);
+		lru->put(user, filename, value, comm_fd, true, seq_num);
+	
 		if (external) {
 			write_log(line);
+			if (isPrimary) {
+				send_to_secondary(line, user);
+			}
 		}	
 	} else {
 		error(comm_fd);
@@ -357,7 +389,7 @@ void Chunkserver::get(char *line, int comm_fd) {
 }
 
 /* CPUT r,c,v1,v2 */
-void Chunkserver::cput(char* &line, bool external, int comm_fd) {
+void Chunkserver::cput(char* &line, bool external, int comm_fd, int seq_num) {
 	char *arguments = new char[strlen(line) - 5 + 1];
 	strncpy(arguments, line + 5, strlen(line) - 5);
 	arguments[strlen(line) - 5] = '\0';
@@ -372,9 +404,10 @@ void Chunkserver::cput(char* &line, bool external, int comm_fd) {
 		string old_value = rcv2.at(2) + "\r\n";
 		string new_value = rcv2.at(3);
 		// Don't support "," in old_value now, old_value may be better transfered as binary
-		lru->cput(user, filename, old_value, new_value, comm_fd);
+		lru->cput(user, filename, old_value, new_value, comm_fd, seq_num);
 		if (external) {
 			write_log(line);
+			if (isPrimary) send_to_secondary(line, user);
 		}
 	} else {
 		error(comm_fd);
@@ -383,7 +416,7 @@ void Chunkserver::cput(char* &line, bool external, int comm_fd) {
 }
 
 /* DELE r,c */
-void Chunkserver::dele(char* &line, bool external, int comm_fd) {
+void Chunkserver::dele(char* &line, bool external, int comm_fd, int seq_num) {
 	char *arguments = new char[strlen(line) - 5 + 1];
 	strncpy(arguments, line + 5, strlen(line) - 5);
 	arguments[strlen(line) - 5] = '\0';
@@ -397,9 +430,10 @@ void Chunkserver::dele(char* &line, bool external, int comm_fd) {
 		string filename;
 		filename.assign(rc.at(1), 0, rc.at(1).size() - 2);
 		//Get the value in the corresponding row and colummn
-		lru->dele(user, filename, comm_fd);
+		lru->dele(user, filename, comm_fd, seq_num);
 		if (external) {
 			write_log(line);
+			if (isPrimary) send_to_secondary(line, user);
 		}
 	} else {
 		error(comm_fd);

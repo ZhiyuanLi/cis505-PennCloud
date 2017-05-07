@@ -31,7 +31,10 @@ using namespace std;
 extern map<string, vector<int>> chunk_info;
 extern map<string, vector<vector<int>>> virmem_meta;
 extern map<string, vector<vector<int>>> cp_meta;
+extern bool isPrimary;
+extern int secondary_fd;
 extern bool opt_v;
+
 
 LRUCache::LRUCache(int capacity) {
     this->capacity = capacity;
@@ -166,7 +169,7 @@ void LRUCache::restore_user(string user, string s, int comm_fd) {
             filename = s.substr(0, pos);
         } else {
             value = s.substr(0, pos);
-            put(user, filename, value, comm_fd, false);
+            put(user, filename, value, comm_fd, false, 0);
         }
         s.erase(0, pos + delimiter.length());
     }
@@ -213,7 +216,7 @@ void LRUCache::load_user_from_disk(string type, string user, int comm_fd) {
     restore_user(user, fn_value, comm_fd);
 }
 
-bool LRUCache::put_helper(string user, string filename, string value, int comm_fd, bool external, bool isCPUT) {
+bool LRUCache::put_helper(string user, string filename, string value, int comm_fd, bool external, bool isCPUT, int seq_num) {
 
     print_memory_status(value.size(), comm_fd);
 
@@ -264,13 +267,18 @@ bool LRUCache::put_helper(string user, string filename, string value, int comm_f
         }
 
         if (external) {
-            if (isCPUT) {
-                const char* feedback = "+OK New value stored\r\n";
-                servermsg(feedback, comm_fd);
+            if (isPrimary) {
+                if (isCPUT) {
+                    const char* feedback = "+OK New value stored\r\n";
+                    servermsg(feedback, comm_fd);
+                } else {
+                    const char* feedback = "+OK Value stored\r\n";
+                    servermsg(feedback, comm_fd);
+                } 
             } else {
-                const char* feedback = "+OK Value stored\r\n";
-                servermsg(feedback, comm_fd);
-            }           
+                string report = "DONE " + user + "," + to_string(seq_num) + "\r\n";
+                send(comm_fd, report.c_str(), report.size(), 0); 
+            }                      
         }
         return true;
     }
@@ -313,13 +321,13 @@ bool LRUCache::get_helper(string user, string filename, string &value, int comm_
     }
 }
 
-void LRUCache::put(string user, string filename, string value, int comm_fd, bool external) {
+void LRUCache::put(string user, string filename, string value, int comm_fd, bool external, int seq_num) {
     if (value.size() > capacity) {
         const char* feedback = "-ERR File size exceeds node capacity\r\n";
         servermsg(feedback, comm_fd);
         return;
     }
-    while (!put_helper(user, filename, value, comm_fd, external, false)) {
+    while (!put_helper(user, filename, value, comm_fd, external, false, seq_num)) {
         use_virtual_memory();
     }
 }
@@ -329,7 +337,7 @@ void LRUCache::get(string user, string filename, int comm_fd) {
     if (get_helper(user, filename, value_read, comm_fd)) {
         const char* feedback = "+OK value as follows: \r\n";
         servermsg(feedback, comm_fd);
-        send(comm_fd, value_read.c_str(), value_read.size() + 1, 0);
+        send(comm_fd, value_read.c_str(), value_read.size(), 0);
 
         // If -v
         if (opt_v) {
@@ -339,13 +347,13 @@ void LRUCache::get(string user, string filename, int comm_fd) {
     }
 }
 
-void LRUCache::cput(string user, string filename, string old_value, string new_value, int comm_fd) {
+void LRUCache::cput(string user, string filename, string old_value, string new_value, int comm_fd, int seq_num) {
     string value_read;
     if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
         if (value_read.compare(old_value) == 0) {
         	user_size[user] -= old_value.size();
             memory_used -= old_value.size();
-            put_helper(user, filename, new_value, comm_fd, true, true);
+            put_helper(user, filename, new_value, comm_fd, true, true, seq_num);
         } else {
             const char* versioncheckfail = "-ERR Version check fail\r\n";
             servermsg(versioncheckfail, comm_fd);
@@ -353,14 +361,19 @@ void LRUCache::cput(string user, string filename, string old_value, string new_v
     }
 }
 
-void LRUCache::dele(string user, string filename, int comm_fd) {
+void LRUCache::dele(string user, string filename, int comm_fd, int seq_num) {
     string value_read;
     if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
     	user_size[user] -= tablets[user]->value[filename].size();
         memory_used -= tablets[user]->value[filename].size();
         tablets[user]->value.erase(filename);
-        const char* successmsg = "+OK File deleted\r\n";
-        servermsg(successmsg, comm_fd);
+        if (isPrimary) {
+            const char* successmsg = "+OK File deleted\r\n";
+            servermsg(successmsg, comm_fd);
+        } else {
+            string report = "DONE " + user + "," + to_string(seq_num) + "\r\n";
+            send(comm_fd, report.c_str(), report.size(), 0);
+        }
 
         // delete the node of empty user
         if (tablets[user]->value.size() == 0) {
@@ -382,7 +395,7 @@ void LRUCache::getlist(string user, string type, int comm_fd){
                     servermsg(feedback, comm_fd);
                 }
                 string fn_value = filename + "," + value_read + ",";
-                send(comm_fd, fn_value.c_str(), fn_value.size() + 1, 0);
+                send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
 
                 // If -v
                 if (opt_v) {

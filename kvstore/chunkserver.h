@@ -17,13 +17,13 @@ public:
     
 public:
   	Chunkserver(int size);
-    void put(char* &line, bool external, int comm_fd); 
+    void put(char* &line, bool external, int comm_fd, int seq_num); 
     void get(char *line, int comm_fd);
-    void cput(char* &line, bool external, int comm_fd);
-    void dele(char* &line, bool external, int comm_fd);
+    void cput(char* &line, bool external, int comm_fd, int seq_num);
+    void dele(char* &line, bool external, int comm_fd, int seq_num);
     void getlist(char *line, int comm_fd);
     void error(int comm_fd);
-    void checkpointing(); 
+    void checkpointing();
     void load_checkpointing();
     void replay_log();  
 
@@ -39,6 +39,7 @@ private:
     void load_cp_vm_meta(string path, string type);
     void load_chunk_info();
     void load_user_size();
+    void send_to_secondary(char* line, string user);
 
 };
 

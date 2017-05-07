@@ -24,11 +24,11 @@ public:
     
 public:
     LRUCache(int capacity);   
-    void put(string user, string filename, string value, int comm_fd, bool external);
+    void put(string user, string filename, string value, int comm_fd, bool external, int seq_num);
     void get(string user, string filename, int comm_fd);
-    void cput(string user, string filename, string old_value, string new_value, int comm_fd);
+    void cput(string user, string filename, string old_value, string new_value, int comm_fd, int seq_num);
     void getlist(string user, string type, int comm_fd);
-    void dele(string user, string filename, int comm_fd);
+    void dele(string user, string filename, int comm_fd, int seq_num);
     void servermsg(const char* msg, int comm_fd);
     int format_node(Node *user_node, string &row);  
     void write_to_chunk(string user, string row, string type);
@@ -36,7 +36,7 @@ public:
 
 private:
     void move_to_tail(Node *current);
-    bool put_helper(string user, string filename, string value, int comm_fd, bool external, bool isCPUT);
+    bool put_helper(string user, string filename, string value, int comm_fd, bool external, bool isCPUT, int seq_num);
     bool get_helper(string user, string filename, string &value, int comm_fd);
     void clear_metadata(string type, string user);
     void update_metadata(string type, string user, string str, int size);   

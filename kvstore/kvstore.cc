@@ -1,10 +1,10 @@
 /**********************************************************************/
-/* This is a multi-threaded chunk server with LRU Cache + Virtual Memory.
+/* This is a multi-threaded chunk server with LRU Cache + Virtual Memory. 
  * Implements the idea of key-value store
- * Created April 2017
+ * Created April 2017 
  * CIS 505 (Software Systems), Prof. Linh
- * University of Pennsylvania
- * @version: 05/05/2017 */
+ * University of Pennsylvania 
+ * @version: 05/06/2017 */
 /**********************************************************************/
 
 #include <stdlib.h>
@@ -48,15 +48,36 @@ string primary_ip;
 unsigned int primary_port;
 int secondary_fd;
 
-map<string, vector<int>> chunk_info;           // key: virtual memory / checkpointing (since we'll rewrite checkpointing periodically, thus separate these chunks)
-                                               // value: #0: the # of current chunk (start from chunk 0),
-                                               //        #1: current chunk size
+struct MsgPair {
+	int sq;
+	string msg;
+};
 
-map<string, vector<vector<int>>> virmem_meta;  // key: user (in virtual memory)
-                                               // value: a sequence of (#chunk, start_idx, length)
+map<string, vector<int>> chunk_info;             // key: virtual memory / checkpointing (since we'll rewrite checkpointing periodically, thus separate these chunks)
+                                                 // value: #0: the # of current chunk (start from chunk 0), 
+                                                 //        #1: current chunk size
 
-map<string, vector<vector<int>>> cp_meta;      // key: user (in memory) when checkpointing
-                                               // value: a sequence of (#chunk, start_idx, length)
+map<string, vector<vector<int>>> virmem_meta;    // key: user (in virtual memory)
+                                                 // value: a sequence of (#chunk, start_idx, length) 
+
+map<string, vector<vector<int>>> cp_meta;        // key: user (in memory) when checkpointing
+                                                 // value: a sequence of (#chunk, start_idx, length) 
+
+map<string, int> seq_num_records;                // for FIFO
+											     // key: user 
+                                                 // value: the highest sequence number proposed
+
+map<string, vector<MsgPair>> secondary_holdback; // for FIFO
+											     // key: user 
+                                                 // value: a sequence of held back msg pairs
+
+map<string, vector<MsgPair>> primary_holdback;          // for Crash Recovery
+											     // key: user 
+                                                 // value: a sequence of held back msg pairs
+
+map<int, string> seq_msg_mapping;          		 // for Crash Recovery
+											     // key: user 
+                                                 // value: a sequence of held back msg pairs
 
 
 /* Keep a record of the space left. */
@@ -80,7 +101,7 @@ void parse_arguments (int argc, char* argv[]) {
 	int index;
 	int c;
 	opterr = 0;
-	while ((c = getopt (argc, argv, "avi:p:nt:")) != -1)
+	while ((c = getopt (argc, argv, "avi:p:n")) != -1)
 	    switch (c)
 	      {
 	      case 'a':
@@ -98,11 +119,6 @@ void parse_arguments (int argc, char* argv[]) {
 	      case 'n':
 	      	opt_n = true;
 	      	break;
-	      case 't':
-	      	cout << optarg << endl;
-	        if (strcmp(optarg, "P") == 0) isPrimary = true;
-	        if (strcmp(optarg, "S") == 0) isPrimary = false;
-	        break;
 	      case '?':
 	        if (optopt == 'p' || optopt == 'i')
 	          fprintf (stderr, "Option -%c requires an argument.\n", optopt);
@@ -131,7 +147,7 @@ void initialization() {
 
 	if (opt_n) {                              // pay attention to relative path here
 		clear_dir("virtual memory/");         // assume you are in the folder where these directories live
-		clear_dir("checkpointing/virtual memory/");
+		clear_dir("checkpointing/virtual memory/"); 
 		clear_dir("checkpointing/");
 		clear_dir("metadata/");
 		initialize_chunk_info("virtual memory");
@@ -141,7 +157,7 @@ void initialization() {
 		// have to do the following crash recovery:
 		server.load_checkpointing();         // load checkpointing
 		server.replay_log();                 // replay log
-	}
+	}	
 }
 
 void parse_ip_and_port(string s)
@@ -163,7 +179,7 @@ void confirm_identity(char feedback []) {
 		isPrimary = true;
 	} else {
 
-		// parse ip and port
+		// parse ip and port 
 		string ip_port = s.substr(2, s.size() - 1);
 		parse_ip_and_port(ip_port);
 
@@ -173,7 +189,7 @@ void confirm_identity(char feedback []) {
 			cout << "primary ip: " << primary_ip << endl;
 			print_time();
 			cout << "primary port: " << primary_port << endl;
-		}
+		}				
 		isPrimary = false;
 	}
 }
@@ -187,13 +203,7 @@ void contact_master() {
         exit(1);
     }
 
-    // associate with master IP address and port number
-    struct sockaddr_in dest;
-    bzero(&dest, sizeof(dest));
-    dest.sin_family = AF_INET;
-    dest.sin_port = htons(MASTER_PORT);
-    inet_pton(AF_INET, MASTER_IP, &(dest.sin_addr));
-
+    // bind to a specific port
     struct sockaddr_in servaddr;
 	bzero(&servaddr, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
@@ -201,16 +211,24 @@ void contact_master() {
 	servaddr.sin_port = htons(port_number);
 	int ret = bind(udp_fd, (struct sockaddr*)&servaddr, sizeof(servaddr));
 
+	// associate with master IP address and port number
+    struct sockaddr_in dest;
+    bzero(&dest, sizeof(dest));
+    dest.sin_family = AF_INET;
+    dest.sin_port = htons(MASTER_PORT);
+    inet_pton(AF_INET, MASTER_IP, &(dest.sin_addr));
+
+
     // ask master for identity P or S
     string ask_master = "!" + to_string(node_id);
-    sendto(udp_fd, ask_master.c_str(), ask_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));
+    sendto(udp_fd, ask_master.c_str(), ask_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));   
 
     struct sockaddr_in src;
     socklen_t srcSize = sizeof(src);
     char feedback[255];
     int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0, (struct sockaddr*)&src, &srcSize);
-    feedback[rlen] = 0;
-
+    feedback[rlen] = 0;   
+    
     // if -v, print conversation with master
 	if (opt_v) {
 		print_time();
@@ -221,35 +239,6 @@ void contact_master() {
 
 	confirm_identity(feedback);
     close(udp_fd);
-}
-
-// TODO: unfinished
-void contact_primary() {
-	// Creates a stream socket
-	int sock_fd = socket(PF_INET, SOCK_STREAM, 0);
-	if (sock_fd < 0) {
-		fprintf(stderr, "Cannot open socket (%s)\n", strerror(errno));
-		exit(1);
-	}
-
-	// Associates a socket with a specific port or IP address
-	struct sockaddr_in primaryaddr;
-	bzero(&primaryaddr, sizeof(primaryaddr));
-	primaryaddr.sin_family = AF_INET;
-	primaryaddr.sin_port = htons(primary_port);
-	inet_pton(AF_INET, primary_ip.c_str(), &(primaryaddr.sin_addr));
-	connect(sock_fd, (struct sockaddr*)&primaryaddr, sizeof(primaryaddr));
-
-	// Report to primary
-	const char* greeting = "S\r\n";
-	send(sock_fd, greeting, strlen(greeting),0);
-
-	// if -v, print conversation with primary
-	if (opt_v) {
-		print_time();
-		cout << "To primary: "  << greeting << endl;
-	}
-	close(sock_fd);
 }
 
 /* Change commands into lower case. */
@@ -366,14 +355,141 @@ string parse_command(char* line)
 		string c(command);
 		delete [] command;
 		return c;
+	}	
+}
+
+void handle_secondary_report(char* line) {
+	string report(line);
+	string s = report.substr(5, report.size() - 5);
+	string user;
+	int seq_num;
+	string delimiter = ",";
+
+    size_t pos = 0;
+    while ((pos = s.find(delimiter)) != string::npos) {
+        user = s.substr(0, pos);
+        s.erase(0, pos + delimiter.length());
+    }
+    seq_num = stoi(s);
+    primary_holdback[user].erase (
+        remove_if(primary_holdback[user].begin(), primary_holdback[user].end(), [&](MsgPair const & msgpair) {
+            return msgpair.sq == seq_num;
+        }),
+        primary_holdback[user].end());
+    if (primary_holdback[user].size() == 0) {
+    	primary_holdback.erase(user);
+    }
+}
+
+void check_primary_holdback() {
+	if (primary_holdback.size() > 0) {
+		for (auto it: primary_holdback) {
+			vector<MsgPair> temp = primary_holdback[it.first];
+			for (int i = 0; i < temp.size(); i++) {
+				string msg_to_s = to_string(temp.at(i).sq) + "," + temp.at(i).msg;
+				send(secondary_fd, msg_to_s.c_str(), msg_to_s.size(), 0);
+			}
+    	}
 	}
+}
+
+/* This thread worker maintains a connection between P and S. */
+void *ps_worker (void *arg) {  // TODO
+
+	// Creates a stream socket
+	int sock_fd = socket(PF_INET, SOCK_STREAM, 0);
+	if (sock_fd < 0) {
+		fprintf(stderr, "Cannot open socket (%s)\n", strerror(errno));
+		exit(1);
+	}
+
+	// Associates a socket with a specific port or IP address
+	struct sockaddr_in primaryaddr;
+	bzero(&primaryaddr, sizeof(primaryaddr));
+	primaryaddr.sin_family = AF_INET;
+	primaryaddr.sin_port = htons(primary_port);
+	inet_pton(AF_INET, primary_ip.c_str(), &(primaryaddr.sin_addr));
+	connect(sock_fd, (struct sockaddr*)&primaryaddr, sizeof(primaryaddr));
+
+	// Report to primary
+	const char* greeting = "S\r\n";
+	send(sock_fd, greeting, strlen(greeting), 0);
+
+	// if -v, print conversation with primary
+	if (opt_v) {
+		print_time();
+		cout << "To primary: "  << greeting << endl;
+	}
+
+	int bufsize = 1024;
+
+	while (true) {
+
+		// Reads msg into buffer
+		char *buffer = new char [bufsize];
+		int nread = recv(sock_fd, buffer, bufsize - 1, 0);
+        buffer[nread]='\0';
+
+        if (nread <= 0) {
+        	delete [] buffer;
+        	continue;
+        }
+
+		// if -v
+		if (opt_v) {
+			print_time();
+			fprintf(stderr, "[%d] C: %s", sock_fd, buffer);
+		}
+
+		// Finds the index of the first <CR><LF>
+		int index = strstr(buffer, "\r\n") - buffer;
+
+		// Finds the index of the first comma
+		int comma_idx = strstr(buffer, ",") - buffer;
+
+		// Gets the sequence number
+		char *sq = new char [comma_idx + 1];
+		strncpy(sq, buffer, comma_idx);
+		sq[comma_idx] = '\0';
+
+		int seq_num = atoi(sq);
+
+		// Gets the operation
+		char *line = new char [index - comma_idx + 2];
+		strncpy(line, buffer + comma_idx + 1, index - comma_idx + 1);
+		line[index - comma_idx + 1] = '\0';
+
+		// Extracts command
+		string command = parse_command(line);
+
+		// Executes commands 
+		if(command.compare("put") == 0) {
+			server.put(line, true, sock_fd, seq_num);
+		}
+
+		if(command.compare("cput") == 0) {
+			server.cput(line, true, sock_fd, seq_num);
+		}
+
+		if(command.compare("dele") == 0) {
+			server.dele(line, true, sock_fd, seq_num);
+		}
+
+		delete [] sq;
+		delete [] line;
+		delete [] buffer;
+	} // end while
+
+	// Closes the socket and terminate the thread
+	close(sock_fd);
+	pthread_exit(NULL);	
 }
 
 /* This thread worker does checkpointing periodically. */
 void *cp_worker (void *arg) {
 
 	while (true) {
-		sleep(CP_INTERVAL);
+		sleep(CP_INTERVAL);              
 		server.checkpointing();
 
 		// If -v
@@ -402,7 +518,7 @@ void *worker (void *arg) {
 	char *temp_buffer = new char[1];
 	temp_buffer[0] = '\0';
 
-	// Executes until user quits.
+	// Executes until user quits. 
 	while (!isQuit) {
 
 		// Reads msg into buffer
@@ -416,8 +532,16 @@ void *worker (void *arg) {
 			fprintf(stderr, "[%d] C: %s", comm_fd, buffer);
 		}
 
-		// Counts the number of chars in current buffer.
+		// Counts the number of chars in current buffer. 
 		counter += nread;
+
+		// Record secondary's fd
+		string s(buffer);
+		if (s.compare("S\r\n") == 0) {
+			secondary_fd = comm_fd;
+			check_primary_holdback();
+			continue;
+		}		
 
 		if (nread > 0) {
 
@@ -435,7 +559,7 @@ void *worker (void *arg) {
 				strncpy(line, buffer, index + 2);
 				line[index + 2] = '\0';
 
-				// Updates buffer
+				// Updates buffer 
 				temp_buf_size = counter - index - 2;
 				update_buffer(temp_buf_size, index, buffer, temp_buffer);
 
@@ -445,10 +569,12 @@ void *worker (void *arg) {
 				// Extracts command
 				string command = parse_command(line);
 
+				// one-time connection with client
 				isQuit = true;
-				// Executes commands
+
+				// Executes commands 
 				if(command.compare("put") == 0) {
-					server.put(line, true, comm_fd);
+					server.put(line, true, comm_fd, 0);
 					continue;
 				}
 
@@ -458,17 +584,27 @@ void *worker (void *arg) {
 				}
 
 				if(command.compare("cput") == 0) {
-					server.cput(line, true, comm_fd);
+					server.cput(line, true, comm_fd, 0);
 					continue;
 				}
 
 				if(command.compare("dele") == 0) {
-					server.dele(line, true, comm_fd);
+					server.dele(line, true, comm_fd, 0);
 					continue;
 				}
 
 				if(command.compare("getlist") == 0) {
 					server.getlist(line, comm_fd);
+					continue;
+				}
+
+				if(command.compare("rename") == 0) {
+					server.rename(line, comm_fd);
+					continue;
+				}
+
+				if(command.compare("done") == 0) {
+					handle_secondary_report(line);
 					continue;
 				}
 
@@ -481,7 +617,7 @@ void *worker (void *arg) {
 
 			} // end while (still have lines end with <CRLF>)
 
-			// Stores the info in the temporary buffer if no <CR><LF> found
+			// Stores the info in the temporary buffer if no <CR><LF> found 
 			if(strstr(buffer, "\r\n") <= 0) {
 				store_incomplete_line(temp_buf_size, temp_buffer, buffer);
 			}
@@ -513,11 +649,17 @@ int main(int argc, char *argv[])
 
 	initialization();
 
+	// Creates a signal thread to deal with checkpointing
+	pthread_t cp_thread;
+	pthread_create(&cp_thread, NULL, cp_worker, NULL);
+
 	if (isPrimary) {
 		print_time();
 		cout << "I'm primary with node ID: " << node_id << endl;
 	} else {
-		// contact_primary(); //TODO
+		// Creates a thread for connection with master
+		pthread_t ps_thread;
+		pthread_create(&ps_thread, NULL, ps_worker, NULL);
 	}
 
 	// Creates a stream socket
@@ -533,7 +675,14 @@ int main(int argc, char *argv[])
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = htons(INADDR_ANY);
 	servaddr.sin_port = htons(port_number);
+
 	int ret = bind(listen_fd, (struct sockaddr*)&servaddr, sizeof(servaddr));
+
+	if(ret < 0)
+	{
+		fprintf(stderr,"bind error!\n");
+	    exit(-1);
+	}
 
 	// if -v, print server ip and port
 	if (opt_v) {
@@ -543,18 +692,16 @@ int main(int argc, char *argv[])
 		cout << "Server port: " << to_string(ntohs(servaddr.sin_port)) << endl;
 	}
 
-	if(ret < 0)
-	{
-		fprintf(stderr,"bind error!\n");
-	    exit(-1);
-	}
-
 	// Puts a socket into the listening state
 	listen(listen_fd, 10);
 
 	while (true) {
 		struct sockaddr_in clientaddr;
 		socklen_t clientaddrlen = sizeof(clientaddr);
+
+		// if (!isPrimary) {
+		// 	isPrimary = true;
+		// }
 
 		// if -v, print server ip and port
 		if (opt_v) {
@@ -572,17 +719,13 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 
-		// Sends greeting message
-		// const char* greeting = "+OK chunkserver ready [localhost]\r\n";
-		// send(*fd, greeting, strlen(greeting),0);
-
 		// Creates a signal thread to deal with signals
 		pthread_t signal_thread;
 		sigset_t set;
 		int s;
 
 		// Block SIGINT; other threads created by main()
-		// will inherit a copy of the signal mask.
+		// will inherit a copy of the signal mask. 
 		sigemptyset(&set);
 		sigaddset(&set, SIGINT);
 		s = pthread_sigmask(SIG_BLOCK, &set, NULL);
@@ -591,10 +734,6 @@ int main(int argc, char *argv[])
 		s = pthread_create(&signal_thread, NULL, &sig_thread, (void *) &set);
 		if (s != 0)
 		    handle_error_en(s, "pthread_create");
-
-		// Creates a signal thread to deal with checkpointing
-		pthread_t cp_thread;
-		pthread_create(&cp_thread, NULL, cp_worker, fd);
 
 		// Dispatch tasks to multiple threads
 		pthread_t thread;
