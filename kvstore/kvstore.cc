@@ -395,7 +395,7 @@ void *worker (void *arg) {
 		fprintf(stderr, "[%d] New connection\n", comm_fd);
 	}
 
-	int bufsize = 1024;
+	int bufsize = 10000000;
 	int counter = 0;
 	bool isQuit = false;
 	int temp_buf_size = 0;
@@ -403,17 +403,17 @@ void *worker (void *arg) {
 	temp_buffer[0] = '\0';
 
 	// Executes until user quits.
-	while (!isQuit) {
+	if (!isQuit) {
 
 		// Reads msg into buffer
-		char *buffer = new char [bufsize];
-		int nread = recv(comm_fd, buffer, bufsize - 1, 0);
-        buffer[nread]='\0';
+		char *line = new char [bufsize];
+		int nread = recv(comm_fd, line, bufsize - 1, 0);
+    line[nread]='\0';
 
 		// if -v
 		if (opt_v) {
 			print_time();
-			fprintf(stderr, "[%d] C: %s", comm_fd, buffer);
+			fprintf(stderr, "[%d] C: %s\n", comm_fd, line);
 		}
 
 		// Counts the number of chars in current buffer.
@@ -422,71 +422,71 @@ void *worker (void *arg) {
 		if (nread > 0) {
 
 			// Merges temporary buffer(with info from previous buffer) and new buffer
-			merge_buffer(temp_buf_size, buffer, temp_buffer);
+			// merge_buffer(temp_buf_size, buffer, temp_buffer);
 
 			// Executes command as long as there are <CR><LF> in current buffer
-			while (strstr(buffer, "\r\n") > 0) {
+			// while (strstr(buffer, "\r\n") > 0) {
 
 				// Finds the index of the first <CR><LF>
-				int index = strstr(buffer, "\r\n") - buffer;
-
-				// Puts the full line in one array
-				char *line = new char [index + 3];
-				strncpy(line, buffer, index + 2);
-				line[index + 2] = '\0';
-
-				// Updates buffer
-				temp_buf_size = counter - index - 2;
-				update_buffer(temp_buf_size, index, buffer, temp_buffer);
-
-				// Updates counter
-				counter = counter - index - 2;
+				// int index = strstr(buffer, "\r\n") - buffer;
+				//
+				// // Puts the full line in one array
+				// char *line = new char [index + 3];
+				// strncpy(line, buffer, index + 2);
+				// line[index + 2] = '\0';
+				//
+				// // Updates buffer
+				// temp_buf_size = counter - index - 2;
+				// update_buffer(temp_buf_size, index, buffer, temp_buffer);
+				//
+				// // Updates counter
+				// counter = counter - index - 2;
 
 				// Extracts command
 				string command = parse_command(line);
 
-				isQuit = true;
+
 				// Executes commands
 				if(command.compare("put") == 0) {
 					server.put(line, true, comm_fd);
-					continue;
+
 				}
 
-				if(command.compare("get") == 0) {
+				else if(command.compare("get") == 0) {
 					server.get(line, comm_fd);
-					continue;
+
 				}
 
-				if(command.compare("cput") == 0) {
+				else if(command.compare("cput") == 0) {
 					server.cput(line, true, comm_fd);
-					continue;
+
 				}
 
-				if(command.compare("dele") == 0) {
+				else if(command.compare("dele") == 0) {
 					server.dele(line, true, comm_fd);
-					continue;
+
 				}
 
-				if(command.compare("getlist") == 0) {
+				else if(command.compare("getlist") == 0) {
 					server.getlist(line, comm_fd);
-					continue;
+
 				}
 
-				if(command.compare("quit") == 0) {
+				else if(command.compare("quit") == 0) {
 					isQuit = true;
-					continue;
+
+				}else{
+					server.error(comm_fd);
 				}
 
-				server.error(comm_fd);
-
-			} // end while (still have lines end with <CRLF>)
+			// } // end while (still have lines end with <CRLF>)
 
 			// Stores the info in the temporary buffer if no <CR><LF> found
-			if(strstr(buffer, "\r\n") <= 0) {
-				store_incomplete_line(temp_buf_size, temp_buffer, buffer);
-			}
+			// if(strstr(buffer, "\r\n") <= 0) {
+			// 	store_incomplete_line(temp_buf_size, temp_buffer, buffer);
+			// }
 		} // end if (nread > 0)
-		delete [] buffer;
+		delete [] line;
 	} // end while (!quit)
 
 	// Closes the socket and terminate the thread
@@ -552,6 +552,10 @@ int main(int argc, char *argv[])
 	// Puts a socket into the listening state
 	listen(listen_fd, 10);
 
+	// Creates a signal thread to deal with checkpointing
+	pthread_t cp_thread;
+	pthread_create(&cp_thread, NULL, cp_worker, NULL);
+
 	while (true) {
 		struct sockaddr_in clientaddr;
 		socklen_t clientaddrlen = sizeof(clientaddr);
@@ -591,10 +595,6 @@ int main(int argc, char *argv[])
 		s = pthread_create(&signal_thread, NULL, &sig_thread, (void *) &set);
 		if (s != 0)
 		    handle_error_en(s, "pthread_create");
-
-		// Creates a signal thread to deal with checkpointing
-		pthread_t cp_thread;
-		pthread_create(&cp_thread, NULL, cp_worker, fd);
 
 		// Dispatch tasks to multiple threads
 		pthread_t thread;

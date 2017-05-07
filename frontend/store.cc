@@ -13,8 +13,8 @@
 
 using namespace std;
 
-// find the backend server that should store the user info
-struct sockaddr_in find_backend(string username) {
+// send one message to backend
+vector<string> send_to_backend(string message, string username) {
 
   int udp_fd = socket(PF_INET, SOCK_DGRAM, 0);
   if (udp_fd < 0) {
@@ -47,15 +47,11 @@ struct sockaddr_in find_backend(string username) {
   vector<string> tokens = split(feedback, ':');
 
   struct sockaddr_in backend;
-  bzero(&dest, sizeof(dest));
+  bzero(&dest, sizeof(backend));
   backend.sin_family = AF_INET;
   backend.sin_port = htons(atoi(tokens.at(1).c_str()));
   inet_pton(AF_INET, tokens.at(0).c_str(), &(backend.sin_addr));
-  return backend;
-}
 
-// send one message to backend
-vector<string> send_to_backend(string message, struct sockaddr_in backend) {
   int sockfd = socket(PF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
     debug(1, "Fail to open a socket!\n");
@@ -86,12 +82,12 @@ vector<string> send_to_backend(string message, struct sockaddr_in backend) {
 
 void add_user(string username, string password) {
   string message = "put " + username + ",pwd," + password + "\r\n";
-  send_to_backend(message, find_backend(username));
+  send_to_backend(message, username);
 }
 
 bool is_user_exist(string username) {
   string message = "get " + username + ",pwd\r\n";
-  vector<string> rep = send_to_backend(message, find_backend(username));
+  vector<string> rep = send_to_backend(message, username);
   if (rep.at(0).compare(0, 3, "+OK") == 0) {
     return true;
   }
@@ -100,7 +96,7 @@ bool is_user_exist(string username) {
 
 bool is_login_valid(string username, string password) {
   string message = "get " + username + ",pwd\r\n";
-  vector<string> rep = send_to_backend(message, find_backend(username));
+  vector<string> rep = send_to_backend(message, username);
   if (rep.at(0).compare(0, 3, "+OK") == 0) {
     if (rep.at(1) == password) {
       return true;
