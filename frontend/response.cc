@@ -6,6 +6,9 @@
 #include <vector>
 #include <fstream>
 #include <arpa/inet.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <sys/types.h>
 
 #include "constants.h"
 #include "utils.h"
@@ -18,6 +21,7 @@ using namespace std;
 
 // username
 string user_name;
+static char* curr_user;
 
 Response::Response(Request req) {
   this->http_version = req.http_version;
@@ -153,6 +157,19 @@ void Response::reg(Request req) {
     string username = split(parameter_tokens.at(0), '=').at(1);
     string password = split(parameter_tokens.at(1), '=').at(1);
 
+    DIR* dir = opendir(username.c_str());
+    if (dir)
+    {
+        /* Directory exists. */
+        closedir(dir);
+    }
+    else if (ENOENT == errno)
+    {
+        /* Directory does not exist. */
+        mkdir(username.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    }
+    curr_user = (char*) (username + "/").c_str();
+
     if (is_user_exist(username)) {
       this->body = get_file_content_as_string("html/user-already-exist.html");
       (this->headers)[CONTENT_LEN] = to_string((this->body).length());
@@ -225,7 +242,7 @@ void Response::upload(Request req) {
 void Response::handle_upload(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
-  string dir(UPLOADED_DIR);
+  string dir(curr_user);
   string filename(extract_file_name(req.body));
   string file_content(extract_file_content(req.body, req.content_length));
   store_file(dir, filename, file_content);
@@ -242,8 +259,13 @@ void Response::handle_upload(Request req) {
 void Response::download(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
-  string dir(UPLOADED_DIR);
+  string dir(curr_user);
   string curr_folder(req.path.substr(9));
+
+  // send to KV store
+  string message("getlist " + user_name + ",file" + "\r\n");
+  vector<string> lines = send_to_backend(message, user_name);
+
   vector<string> files(list_all_files(dir));
   stringstream ss_file;
   stringstream ss_folder;
@@ -324,7 +346,7 @@ void Response::create_new_folder(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   string foldername = req.body.substr(req.body.find('=') + 1);
-  string dir(UPLOADED_DIR);
+  string dir(curr_user);
   foldername += ".folder";
   store_file(dir, foldername, "empty");
 
@@ -350,7 +372,7 @@ void Response::rename_file(Request req) {
     foldername += "+";
   }
 
-  string dir(UPLOADED_DIR);
+  string dir(curr_user);
   rename((dir + foldername + oldname).c_str(),
           (dir + foldername + newname).c_str());
   this->body = get_file_content_as_string("html/rename-file-success.html");
@@ -371,7 +393,7 @@ void Response::delete_file(Request req) {
     foldername += "+";
   }
 
-  string dir(UPLOADED_DIR);
+  string dir(curr_user);
   remove((dir + foldername + filename).c_str());
 
   // send to KV store
@@ -388,7 +410,7 @@ void Response::delete_folder(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   string foldername = req.body.substr(req.body.find('=') + 1);
-  string dir(UPLOADED_DIR);
+  string dir(curr_user);
   vector<string> files(list_all_files(dir));
 
   for (vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
@@ -425,7 +447,7 @@ void Response::move_file(Request req) {
   string oldfolder = tokens.at(1).substr(tokens.at(1).find('=') + 1);
   string newfolder = tokens.at(2).substr(tokens.at(2).find('=') + 1);
 
-  string dir(UPLOADED_DIR);
+  string dir(curr_user);
   if (oldfolder.length() > 0) {
     rename((dir + oldfolder + "+" + filename).c_str(),
           (dir + newfolder + "+" + filename).c_str());
