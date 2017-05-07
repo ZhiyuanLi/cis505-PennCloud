@@ -4,6 +4,9 @@
 *.o
 *.obj
 
+# Hidden Files
+.*
+
 # Precompiled Headers
 *.gch
 *.pch
