@@ -8,12 +8,13 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "../frontend/utils.h"
 #include "config.h"
 #include "conhash.h"
 
 using namespace std;
 
-// Server class
+// Server class to represent a backend server
 class Server {
 
 public:
@@ -31,44 +32,72 @@ public:
   Server secondary;
 };
 
+// backend servers
 map<int, Pair> servers;
 
 /*
- * check server state every 5 second
+ * check server state
  */
-// void *check_server_state(void *arg) {
-//   while (true) {
-//     for (int i = 1; i <= NUM_OF_SERVERS; i++) {
-//       int sockfd = socket(PF_INET, SOCK_STREAM, 0);
-//       struct sockaddr_in servaddr;
-//       inet_aton(servers[i].ip.c_str(), &(servaddr.sin_addr));
-//       servaddr.sin_port = htons(servers[i].port);
-//       servaddr.sin_family = AF_INET;
-//
-//       if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) ==
-//           0) {
-//         pthread_mutex_lock(&mutex_lock);
-//         servers[i].running = true;
-//         pthread_mutex_unlock(&mutex_lock);
-//
-//         cout << "server #" << i << " is active" << endl;
-//       } else {
-//         pthread_mutex_lock(&mutex_lock);
-//         servers[i].running = false;
-//         pthread_mutex_unlock(&mutex_lock);
-//
-//         cout << "server #" << i << " is down" << endl;
-//       }
-//
-//       close(sockfd);
-//     }
-//
-//     // sleep 5 second
-//     sleep(5);
-//   }
-//
-//   return NULL;
-// }
+bool check_server_state(string ip, int port) {
+  bool state;
+  int sockfd = socket(PF_INET, SOCK_STREAM, 0);
+  struct sockaddr_in servaddr;
+  inet_aton(ip.c_str(), &(servaddr.sin_addr));
+  servaddr.sin_port = htons(port);
+  servaddr.sin_family = AF_INET;
+
+  if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
+    state = true;
+    cout << "server " << ip << ":" << port << " is active" << endl;
+    char m[] = "quit\r\n";
+
+    debug(1, "[%d] Send to backend: %s", sockfd, m);
+    do_write(sockfd, m, strlen(m));
+  } else {
+    state = false;
+    cout << "server " << ip << ":" << port << " is down" << endl;
+  }
+
+  close(sockfd);
+  return true;
+}
+
+// get corresponding next-higher backend server id
+int get_server_id(int key) {
+  if (servers.empty())
+    return -1;
+  map<int, Pair>::iterator it = servers.begin();
+  int head = it->first;
+  if (0 <= key && key < head) {
+    return head;
+  }
+  int prev = head;
+  int current = prev;
+  ++it;
+  for (; it != servers.end(); ++it) {
+    current = it->first;
+    if (prev <= key && key < current) {
+      return current;
+    }
+    prev = current;
+  }
+  return head;
+}
+
+// get server ip:port
+string get_backend_info(int key) {
+  int server_id = get_server_id(key);
+  Pair pair = servers[server_id];
+
+  if (!check_server_state(pair.primary.ip, pair.primary.port)) {
+    pair.primary = pair.secondary;
+    Server dummy;
+    pair.secondary = dummy;
+  }
+  servers[server_id] = pair;
+  string res = pair.primary.ip + ":" + to_string(pair.primary.port);
+  return res;
+}
 
 /*
  * Main
@@ -102,11 +131,14 @@ int main(int argc, char *argv[]) {
            ntohs(src.sin_port));
 
     string command = message.substr(0, 1);
+    string content = message.substr(1, message.length() - 1);
 
     if (command.compare("?") == 0) {
-
+      int key = hash_str(content.c_str());
+      rep = get_backend_info(key);
+      cout << rep << endl;
     } else if (command.compare("!") == 0) {
-      int id = atoi(message.substr(1, message.length() - 1).c_str());
+      int id = atoi(content.c_str());
       Pair pair;
       Server server;
       server.id = id;

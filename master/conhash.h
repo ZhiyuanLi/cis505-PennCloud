@@ -6,6 +6,6 @@
 #define MAX_KEY 86969 /* yet another prime, also the max key */
 #define FIRSTH 37 /* also prime */
 
-unsigned hash_str(const char* s);
+int hash_str(const char* s);
 
 #endif

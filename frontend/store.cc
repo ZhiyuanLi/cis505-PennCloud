@@ -1,14 +1,85 @@
-#include <map>
-#include <set>
 #include <stdio.h>
 #include <time.h>
+#include <arpa/inet.h>
+#include <iostream>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "../master/config.h"
 #include "constants.h"
+#include "utils.h"
 #include "store.h"
 
 using namespace std;
 
-void add_user(string username, string password) { users[username] = password; }
+// find the backend server that should store the user info
+struct sockaddr_in find_backend(string username) {
+
+  int udp_fd = socket(PF_INET, SOCK_DGRAM, 0);
+  if (udp_fd < 0) {
+    debug(1, "Cannot open socket!\n");
+    exit(-1);
+  }
+
+  // associate with master IP address and port number
+  struct sockaddr_in dest;
+  bzero(&dest, sizeof(dest));
+  dest.sin_family = AF_INET;
+  dest.sin_port = htons(MASTER_PORT);
+  inet_pton(AF_INET, MASTER_IP, &(dest.sin_addr));
+
+  // ask master for backend's ip:port
+  string contact_master = "?" + username;
+  sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0, (struct sockaddr*)&dest, sizeof(dest));
+  cout << "To master: " << contact_master << endl;
+
+  struct sockaddr_in src;
+  socklen_t srcSize = sizeof(src);
+  char feedback[50];
+  int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0, (struct sockaddr*)&src, &srcSize);
+  feedback[rlen] = 0;
+  cout << "From master: " << feedback << endl;
+
+  close(udp_fd);
+  vector<string> tokens = split(feedback, ':');
+
+  struct sockaddr_in backend;
+  bzero(&dest, sizeof(dest));
+  backend.sin_family = AF_INET;
+  backend.sin_port = htons(atoi(tokens.at(1).c_str()));
+  inet_pton(AF_INET, tokens.at(0).c_str(), &(backend.sin_addr));
+  return backend;
+}
+
+//send one message to backend
+char* send_to_backend(string message, struct sockaddr_in backend){
+  int sockfd = socket(PF_INET, SOCK_STREAM, 0);
+  if (sockfd < 0) {
+    debug(1, "Fail to open a socket!\n");
+    return NULL;
+  }
+  connect(sockfd, (struct sockaddr*) &backend, sizeof(backend));
+  char m[message.length() + 1];
+  strcpy(m, message.c_str());
+
+  debug(1, "[%d] Send to backend: %s", sockfd, m);
+  do_write(sockfd, m, strlen(m));
+
+  int bufsize = 1000000000;
+  char *buffer = new char [bufsize];
+  int rlen = recv(sockfd, buffer, bufsize - 1, 0);
+  buffer[rlen]='\0';
+
+  debug(1, "[%d] Receive from backend: %s", sockfd, buffer);
+
+  return buffer;
+}
+
+void add_user(string username, string password) {
+  string message = "put "+username+",pwd,"+password+"\r\n";
+  send_to_backend(message, find_backend(username));
+}
 
 bool is_user_exist(string username) {
   return users.count(username) == 1 ? true : false;
