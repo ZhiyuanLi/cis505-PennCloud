@@ -324,7 +324,13 @@ void Response::create_new_folder(Request req) {
   (this->headers)[CONTENT_TYPE] = "text/html";
   string foldername = req.body.substr(req.body.find('=') + 1);
   string dir(UPLOADED_DIR);
-  store_file(dir, foldername + ".folder", "");
+  foldername += ".folder"；
+  store_file(dir, foldername, "empty");
+
+  // send to KV store
+  string message("put " + user_name + "," + foldername + "," + "empty" + "\r\n");
+  send_to_backend(message, user_name);
+
   this->body = get_file_content_as_string("html/create-new-folder-success.html");
   replace_all(this->body, "$foldername", foldername);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
@@ -366,6 +372,11 @@ void Response::delete_file(Request req) {
 
   string dir(UPLOADED_DIR);
   remove((dir + foldername + filename).c_str());
+
+  // send to KV store
+  string message("dele " + user_name + "," + foldername + filename + "\r\n");
+  send_to_backend(message, user_name);
+
   this->body = get_file_content_as_string("html/delete-file-success.html");
   replace_all(this->body, "$filename", filename);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
@@ -385,9 +396,17 @@ void Response::delete_folder(Request req) {
       if (*it == (foldername + ".folder")
           || (*it).find(foldername + "+") != string::npos) {
         remove(file_path.c_str());
+
+        // send to KV store
+        string message("dele " + user_name + "," + *it + "\r\n");
+        send_to_backend(message, user_name);
       }
     } else {
       remove(file_path.c_str());
+
+      // send to KV store
+      string message("dele " + user_name + "," + *it + "\r\n");
+      send_to_backend(message, user_name);
     }
   }
 
