@@ -7,6 +7,8 @@
 #include <fstream>
 #include <arpa/inet.h>
 #include <sys/stat.h>
+#include <dirent.h>
+#include <sys/types.h>
 
 #include "constants.h"
 #include "utils.h"
@@ -155,11 +157,16 @@ void Response::reg(Request req) {
     string username = split(parameter_tokens.at(0), '=').at(1);
     string password = split(parameter_tokens.at(1), '=').at(1);
 
-    int dir_err = mkdir(username.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-    if (dir_err == -1)
+    DIR* dir = opendir(username.c_str());
+    if (dir)
     {
-        printf("Error creating directory!n");
-        exit(1);
+        /* Directory exists. */
+        closedir(dir);
+    }
+    else if (ENOENT == errno)
+    {
+        /* Directory does not exist. */
+        mkdir(username.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     }
     curr_user = (char*) (username + "/").c_str();
 
