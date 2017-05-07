@@ -14,13 +14,17 @@
 
 using namespace std;
 
+// username
+string username;
+
 Response::Response(Request req) {
   this->http_version = req.http_version;
   (this->headers)[CONNECTION] = "close";
 
-  // static file
   const char* filename = ("." + req.path).c_str();
-  if (is_file_exist(filename)) {
+
+  // static file
+  if (req.path != HOME_URL && is_file_exist(filename)) {
     file(filename);
   }
 
@@ -31,6 +35,11 @@ Response::Response(Request req) {
 
   // login
   else if (req.path == LOGIN_URL) {
+    login(req);
+  }
+
+  // user not login
+  else if (!is_already_login(req.cookies, username)) {
     login(req);
   }
 
@@ -92,6 +101,11 @@ Response::Response(Request req) {
   // view email
   else if (req.path == VIEW_EMAIL_URL) {
     view_email(req);
+  }
+
+  // otherwise login
+  else {
+    login(req);
   }
 
 }
@@ -449,7 +463,7 @@ void Response::inbox(Request req) {
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
-/* inbox */
+/* view email */
 void Response::view_email(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";

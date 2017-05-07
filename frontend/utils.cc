@@ -8,6 +8,9 @@
 #include <unistd.h>
 #include <vector>
 #include <streambuf>
+#include <iomanip>
+#include <ctime>
+
 
 #include "utils.h"
 
@@ -161,4 +164,12 @@ void replace_all(string& str, const string& from, const string& to) {
 int file_size(const char* filename) {
     ifstream in(filename, ifstream::ate | ifstream::binary);
     return in.tellg();
+}
+
+/* get current time */
+string get_current_time() {
+  time_t t = time(nullptr);
+  ostringstream curr_time;
+  curr_time << put_time(localtime(&t), "%c %Z");
+  return curr_time.str();
 }
