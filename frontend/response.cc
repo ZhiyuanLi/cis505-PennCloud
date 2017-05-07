@@ -5,17 +5,19 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <arpa/inet.h>
 
 #include "constants.h"
 #include "utils.h"
 #include "request.h"
 #include "response.h"
 #include "store.h"
+#include "../webmail/server_header.h"
 
 using namespace std;
 
 // username
-string username;
+string user_name;
 
 Response::Response(Request req) {
   this->http_version = req.http_version;
@@ -39,7 +41,7 @@ Response::Response(Request req) {
   }
 
   // user not login
-  else if (!is_already_login(req.cookies, username)) {
+  else if (!is_already_login(req.cookies, user_name)) {
     login(req);
   }
 
@@ -225,7 +227,13 @@ void Response::handle_upload(Request req) {
   (this->headers)[CONTENT_TYPE] = "text/html";
   string dir(UPLOADED_DIR);
   string filename(extract_file_name(req.body));
-  store_file(dir, filename, extract_file_content(req.body, req.content_length));
+  string file_content(extract_file_content(req.body, req.content_length));
+  store_file(dir, filename, file_content);
+
+  // send to KV store
+  string message("put " + user_name + "," + filename + "," + file_content + "\r\n");
+  send_to_backend(message, user_name);
+
   this->body = get_file_content_as_string("html/upload.html");
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
@@ -317,7 +325,13 @@ void Response::create_new_folder(Request req) {
   (this->headers)[CONTENT_TYPE] = "text/html";
   string foldername = req.body.substr(req.body.find('=') + 1);
   string dir(UPLOADED_DIR);
-  store_file(dir, foldername + ".folder", "");
+  foldername += ".folder";
+  store_file(dir, foldername, "empty");
+
+  // send to KV store
+  string message("put " + user_name + "," + foldername + "," + "empty" + "\r\n");
+  send_to_backend(message, user_name);
+
   this->body = get_file_content_as_string("html/create-new-folder-success.html");
   replace_all(this->body, "$foldername", foldername);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
@@ -359,6 +373,11 @@ void Response::delete_file(Request req) {
 
   string dir(UPLOADED_DIR);
   remove((dir + foldername + filename).c_str());
+
+  // send to KV store
+  string message("dele " + user_name + "," + foldername + filename + "\r\n");
+  send_to_backend(message, user_name);
+
   this->body = get_file_content_as_string("html/delete-file-success.html");
   replace_all(this->body, "$filename", filename);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
@@ -378,9 +397,17 @@ void Response::delete_folder(Request req) {
       if (*it == (foldername + ".folder")
           || (*it).find(foldername + "+") != string::npos) {
         remove(file_path.c_str());
+
+        // send to KV store
+        string message("dele " + user_name + "," + *it + "\r\n");
+        send_to_backend(message, user_name);
       }
     } else {
       remove(file_path.c_str());
+
+      // send to KV store
+      string message("dele " + user_name + "," + *it + "\r\n");
+      send_to_backend(message, user_name);
     }
   }
 

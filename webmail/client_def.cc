@@ -19,18 +19,18 @@
 
 void log(const char *prefix, const char *data, int len, const char *suffix)
 {
-  printf("%s", prefix);
-  for (int i=0; i<len; i++) {
-    if (data[i] == '\n')
-      printf("<LF>");
-    else if (data[i] == '\r') 
-      printf("<CR>");
-    else if (isprint(data[i])) 
-      printf("%c", data[i]);
-    else 
-      printf("<0x%02X>", (unsigned int)(unsigned char)data[i]);
-  }
-  printf("%s", suffix);
+	printf("%s", prefix);
+	for (int i=0; i<len; i++) {
+		if (data[i] == '\n')
+			printf("<LF>");
+		else if (data[i] == '\r')
+			printf("<CR>");
+		else if (isprint(data[i]))
+			printf("%c", data[i]);
+		else
+			printf("<0x%02X>", (unsigned int)(unsigned char)data[i]);
+	}
+	printf("%s", suffix);
 }
 
 // This function writes a string to a connection. If a LF is required,
@@ -39,18 +39,18 @@ void log(const char *prefix, const char *data, int len, const char *suffix)
 
 void writeString(struct connection *conn, const char *data)
 {
-  int len = strlen(data);
-  log("C: ", data, len, "\n");
+	int len = strlen(data);
+	log("C: ", data, len, "\n");
 
-  int wptr = 0;
-  while (wptr < len) {
-    int w = write(conn->fd, &data[wptr], len-wptr);
-    if (w<0)
-      panic("Cannot write to conncetion (%s)", strerror(errno));
-    if (w==0)
-      panic("Connection closed unexpectedly");
-    wptr += w;
-  }
+	int wptr = 0;
+	while (wptr < len) {
+		int w = write(conn->fd, &data[wptr], len-wptr);
+		if (w<0)
+			panic("Cannot write to conncetion (%s)", strerror(errno));
+		if (w==0)
+			panic("Connection closed unexpectedly");
+		wptr += w;
+	}
 }
 
 // This function verifies that the server has sent us more data at this point.
@@ -61,42 +61,42 @@ void writeString(struct connection *conn, const char *data)
 
 void expectNoMoreData(struct connection *conn)
 {
-  int flags = fcntl(conn->fd, F_GETFL, 0);
-  fcntl(conn->fd, F_SETFL, flags | O_NONBLOCK);
-  int r = read(conn->fd, &conn->buf[conn->bytesInBuffer], conn->bufferSizeBytes - conn->bytesInBuffer);
+	int flags = fcntl(conn->fd, F_GETFL, 0);
+	fcntl(conn->fd, F_SETFL, flags | O_NONBLOCK);
+	int r = read(conn->fd, &conn->buf[conn->bytesInBuffer], conn->bufferSizeBytes - conn->bytesInBuffer);
 
-  if ((r<0) && (errno != EAGAIN))
-    panic("Read from connection failed (%s)", strerror(errno));
+	if ((r<0) && (errno != EAGAIN))
+		panic("Read from connection failed (%s)", strerror(errno));
 
-  if (r>0)
-    conn->bytesInBuffer += r;
+	if (r>0)
+		conn->bytesInBuffer += r;
 
-  if (conn->bytesInBuffer > 0) {
-    log("S: ", conn->buf, conn->bytesInBuffer, " [unexpected; server should not have sent anything!]\n");
-    conn->bytesInBuffer = 0;
-  }
+	if (conn->bytesInBuffer > 0) {
+		log("S: ", conn->buf, conn->bytesInBuffer, " [unexpected; server should not have sent anything!]\n");
+		conn->bytesInBuffer = 0;
+	}
 
-  fcntl(conn->fd, F_SETFL, flags);
+	fcntl(conn->fd, F_SETFL, flags);
 }
 
 // Attempts to connect to a port on the local machine.
 
 void connectToPort(struct connection *conn, int portno)
 {
-  conn->fd = socket(PF_INET, SOCK_STREAM, 0);
-  if (conn->fd < 0) 
-    panic("Cannot open socket (%s)", strerror(errno));
+	conn->fd = socket(PF_INET, SOCK_STREAM, 0);
+	if (conn->fd < 0)
+		panic("Cannot open socket (%s)", strerror(errno));
 
-  struct sockaddr_in servaddr;
-  bzero(&servaddr, sizeof(servaddr));
-  servaddr.sin_family=AF_INET;
-  servaddr.sin_port=htons(portno);
-  inet_pton(AF_INET, "127.0.0.1", &(servaddr.sin_addr));
+	struct sockaddr_in servaddr;
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sin_family=AF_INET;
+	servaddr.sin_port=htons(portno);
+	inet_pton(AF_INET, "127.0.0.1", &(servaddr.sin_addr));
 
-  if (connect(conn->fd, (struct sockaddr*)&servaddr, sizeof(servaddr))<0)
-    panic("Cannot connect to localhost:10000 (%s)", strerror(errno));
+	if (connect(conn->fd, (struct sockaddr*)&servaddr, sizeof(servaddr))<0)
+		panic("Cannot connect to localhost:10000 (%s)", strerror(errno));
 
-  conn->bytesInBuffer = 0;
+	conn->bytesInBuffer = 0;
 }
 
 // Reads a line of text from the server (until it sees a LF) and then compares
@@ -105,120 +105,168 @@ void connectToPort(struct connection *conn, int portno)
 // (This is to avoid assumptions about whether the server terminates its lines
 // with a CRLF or with a LF.)
 
+void DoRead(struct connection *conn){
+
+	int lfpos = -1;
+	while (true) {
+		for (int i=0; i<conn->bytesInBuffer; i++) {
+			if (conn->buf[i] == '\n') {
+				lfpos = i;
+				break;
+			}
+		}
+
+		if (lfpos >= 0)
+			break;
+
+		if (conn->bytesInBuffer >= conn->bufferSizeBytes)
+			panic("Read %d bytes, but no CRLF found", conn->bufferSizeBytes);
+
+		int bytesRead = read(conn->fd, &conn->buf[conn->bytesInBuffer], conn->bufferSizeBytes - conn->bytesInBuffer);
+		if (bytesRead < 0)
+			panic("Read failed (%s)", strerror(errno));
+		if (bytesRead == 0)
+			panic("Connection closed unexpectedly");
+
+		conn->bytesInBuffer += bytesRead;
+	}
+
+	log("S: ", conn->buf, lfpos+1, "");
+
+	// Get rid of the LF (or, if it is preceded by a CR, of both the CR and the LF)
+
+	bool crMissing = false;
+	if ((lfpos==0) || (conn->buf[lfpos-1] != '\r')) {
+		crMissing = true;
+		conn->buf[lfpos] = 0;
+	} else {
+		conn->buf[lfpos-1] = 0;
+	}
+
+	// 'Eat' the line we just parsed. However, keep in mind that there might still be
+	// more bytes in the buffer (e.g., another line, or a part of one), so we have to
+	// copy the rest of the buffer up.
+
+	for (int i=lfpos+1; i<conn->bytesInBuffer; i++)
+		conn->buf[i-(lfpos+1)] = conn->buf[i];
+	conn->bytesInBuffer -= (lfpos+1);
+
+}
+
 void expectToRead(struct connection *conn, const char *data)
 {
-  // Keep reading until we see a LF
+	// Keep reading until we see a LF
 
-  int lfpos = -1;
-  while (true) {
-    for (int i=0; i<conn->bytesInBuffer; i++) {
-      if (conn->buf[i] == '\n') {
-        lfpos = i;
-        break;
-      }
-    }
+	int lfpos = -1;
+	while (true) {
+		for (int i=0; i<conn->bytesInBuffer; i++) {
+			if (conn->buf[i] == '\n') {
+				lfpos = i;
+				break;
+			}
+		}
 
-    if (lfpos >= 0)
-      break;
+		if (lfpos >= 0)
+			break;
 
-    if (conn->bytesInBuffer >= conn->bufferSizeBytes)
-      panic("Read %d bytes, but no CRLF found", conn->bufferSizeBytes);
+		if (conn->bytesInBuffer >= conn->bufferSizeBytes)
+			panic("Read %d bytes, but no CRLF found", conn->bufferSizeBytes);
 
-    int bytesRead = read(conn->fd, &conn->buf[conn->bytesInBuffer], conn->bufferSizeBytes - conn->bytesInBuffer);
-    if (bytesRead < 0)
-      panic("Read failed (%s)", strerror(errno));
-    if (bytesRead == 0)
-      panic("Connection closed unexpectedly");
+		int bytesRead = read(conn->fd, &conn->buf[conn->bytesInBuffer], conn->bufferSizeBytes - conn->bytesInBuffer);
+		if (bytesRead < 0)
+			panic("Read failed (%s)", strerror(errno));
+		if (bytesRead == 0)
+			panic("Connection closed unexpectedly");
 
-    conn->bytesInBuffer += bytesRead;
-  }
+		conn->bytesInBuffer += bytesRead;
+	}
 
-  log("S: ", conn->buf, lfpos+1, "");
+	log("S: ", conn->buf, lfpos+1, "");
 
-  // Get rid of the LF (or, if it is preceded by a CR, of both the CR and the LF)
+	// Get rid of the LF (or, if it is preceded by a CR, of both the CR and the LF)
 
-  bool crMissing = false;
-  if ((lfpos==0) || (conn->buf[lfpos-1] != '\r')) {
-    crMissing = true;
-    conn->buf[lfpos] = 0;
-  } else {
-    conn->buf[lfpos-1] = 0;
-  }
+	bool crMissing = false;
+	if ((lfpos==0) || (conn->buf[lfpos-1] != '\r')) {
+		crMissing = true;
+		conn->buf[lfpos] = 0;
+	} else {
+		conn->buf[lfpos-1] = 0;
+	}
 
-  // Check whether the server's actual response matches the expected response
-  // Note: The expected response might end in a wildcard (*) in which case
-  // the rest of the server's line is ignored.
+	// Check whether the server's actual response matches the expected response
+	// Note: The expected response might end in a wildcard (*) in which case
+	// the rest of the server's line is ignored.
 
-  int argptr = 0, bufptr = 0;
-  bool match = true;
-  while (match && data[argptr]) {
-    if (data[argptr] == '*') 
-      break;
-    if (data[argptr++] != conn->buf[bufptr++])
-      match = false;
-  }
+	int argptr = 0, bufptr = 0;
+	bool match = true;
+	while (match && data[argptr]) {
+		if (data[argptr] == '*')
+			break;
+		if (data[argptr++] != conn->buf[bufptr++])
+			match = false;
+	}
 
-  if (!data[argptr] && conn->buf[bufptr])
-    match = false;
+	if (!data[argptr] && conn->buf[bufptr])
+		match = false;
 
-  // Annotate the output to indicate whether the response matched the expectation.
+	// Annotate the output to indicate whether the response matched the expectation.
 
-  if (match) {
-    if (crMissing)
-      printf(" [Terminated by LF, not by CRLF]\n");
-    else 
-      printf(" [OK]\n");
-  } else {
-    log(" [Expected: '", data, strlen(data), "']\n");
-  }
+	if (match) {
+		if (crMissing)
+			printf(" [Terminated by LF, not by CRLF]\n");
+		else
+			printf(" [OK]\n");
+	} else {
+		log(" [Expected: '", data, strlen(data), "']\n");
+	}
 
-  // 'Eat' the line we just parsed. However, keep in mind that there might still be
-  // more bytes in the buffer (e.g., another line, or a part of one), so we have to
-  // copy the rest of the buffer up.
+	// 'Eat' the line we just parsed. However, keep in mind that there might still be
+	// more bytes in the buffer (e.g., another line, or a part of one), so we have to
+	// copy the rest of the buffer up.
 
-  for (int i=lfpos+1; i<conn->bytesInBuffer; i++)
-    conn->buf[i-(lfpos+1)] = conn->buf[i];
-  conn->bytesInBuffer -= (lfpos+1);
+	for (int i=lfpos+1; i<conn->bytesInBuffer; i++)
+		conn->buf[i-(lfpos+1)] = conn->buf[i];
+	conn->bytesInBuffer -= (lfpos+1);
 }
 
 // This function verifies that the remote end has closed the connection.
 
 void expectRemoteClose(struct connection *conn)
 {
-  int r = read(conn->fd, &conn->buf[conn->bytesInBuffer], conn->bufferSizeBytes - conn->bytesInBuffer);
-  if (r<0)
-    panic("Read failed (%s)", strerror(errno));
-  if (r>0) {
-    log("S: ", conn->buf, r + conn->bytesInBuffer, " [unexpected; server should have closed the connection]\n");
-    conn->bytesInBuffer = 0;
-  }
+	int r = read(conn->fd, &conn->buf[conn->bytesInBuffer], conn->bufferSizeBytes - conn->bytesInBuffer);
+	if (r<0)
+		panic("Read failed (%s)", strerror(errno));
+	if (r>0) {
+		log("S: ", conn->buf, r + conn->bytesInBuffer, " [unexpected; server should have closed the connection]\n");
+		conn->bytesInBuffer = 0;
+	}
 }
 
 // This function initializes the read buffer
 
 void initializeBuffers(struct connection *conn, int bufferSizeBytes)
 {
-  conn->fd = -1;
-  conn->bufferSizeBytes = bufferSizeBytes;
-  conn->bytesInBuffer = 0;
-  conn->buf = (char*)malloc(bufferSizeBytes);
-  if (!conn->buf)
-  	panic("Cannot allocate %d bytes for buffer", bufferSizeBytes);
+	conn->fd = -1;
+	conn->bufferSizeBytes = bufferSizeBytes;
+	conn->bytesInBuffer = 0;
+	conn->buf = (char*)malloc(bufferSizeBytes);
+	if (!conn->buf)
+		panic("Cannot allocate %d bytes for buffer", bufferSizeBytes);
 }
 
 // This function closes our local end of a connection
 
 void closeConnection(struct connection *conn)
 {
-  close(conn->fd);
+	close(conn->fd);
 }
 
 // This function frees the allocated read buffer
 
 void freeBuffers(struct connection *conn)
 {
-  free(conn->buf);
-  conn->buf = NULL;	
+	free(conn->buf);
+	conn->buf = NULL;
 }
 
 // The main function, which basically drives the test cases by calling the above

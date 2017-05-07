@@ -99,7 +99,7 @@ vector<string> split(const string &s, char delim) {
 /* extract uploaded file content from request body */
 string extract_file_content(string req_body, int content_length) {
   req_body = req_body.substr(req_body.find("\r\n\r\n") + 4);
-  return req_body.substr(0, req_body.find("------WebKitFormBoundary") - 2);
+  return req_body.substr(0, req_body.find("----") - 2);
   // return req_body.substr(0, content_length);
 }
 

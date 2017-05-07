@@ -6,11 +6,8 @@
 
 using namespace std;
 
-// find the backend server that should store the user info
-struct sockaddr_in find_backend(string username);
-
 //send one message to backend
-vector<string> send_to_backend(string message, struct sockaddr_in backend);
+vector<string> send_to_backend(string message, string username);
 
 void add_user(string username, string password);
 
