@@ -15,7 +15,7 @@
 #include "request.h"
 #include "response.h"
 #include "store.h"
-#include "../webmail/server_header.h"
+#include "../webmail/webmail_utils.h"
 
 using namespace std;
 
