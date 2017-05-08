@@ -483,55 +483,6 @@ void *ps_worker (void *arg) {  // TODO
 	pthread_exit(NULL);	
 }
 
-/* This thread worker maintains a connection between P and S. */
-// void *ps_worker (void *arg) {
-
-// 	// Creates a stream socket
-// 	int sock_fd = socket(PF_INET, SOCK_STREAM, 0);
-// 	if (sock_fd < 0) {
-// 		fprintf(stderr, "Cannot open socket (%s)\n", strerror(errno));
-// 		exit(1);
-// 	}
-
-// 	// Associates a socket with a specific port or IP address
-// 	struct sockaddr_in primaryaddr;
-// 	bzero(&primaryaddr, sizeof(primaryaddr));
-// 	primaryaddr.sin_family = AF_INET;
-// 	primaryaddr.sin_port = htons(primary_port);
-// 	inet_pton(AF_INET, primary_ip.c_str(), &(primaryaddr.sin_addr));
-// 	connect(sock_fd, (struct sockaddr*)&primaryaddr, sizeof(primaryaddr));
-
-// 	// Report to primary
-// 	const char* greeting = "S\r\n";
-// 	send(sock_fd, greeting, strlen(greeting),0);
-
-// 	// if -v, print conversation with primary
-// 	if (opt_v) {
-// 		print_time();
-// 		cout << "To primary: "  << greeting << endl;
-// 	}
-
-// 	int bufsize = 1024;
-
-// 	while (true) {
-
-// 		// Reads msg into buffer
-// 		char *buffer = new char [bufsize];
-// 		int nread = recv(sock_fd, buffer, bufsize - 1, 0);
-//         buffer[nread]='\0';
-
-//         if (nread <= 0) continue;
-
-// 		// if -v
-// 		if (opt_v) {
-// 			print_time();
-// 			fprintf(stderr, "[%d] C: %s", sock_fd, buffer);
-// 		}
-// 	}
-
-// 	close(sock_fd);
-// }
-
 /* This thread worker does checkpointing periodically. */
 void *cp_worker (void *arg) {
 
@@ -581,7 +532,7 @@ void *worker (void *arg) {
 				fprintf(stderr, "[%d] C: %s", comm_fd, line);
 			}
 
-			// Record secondary's fd
+			// Records secondary's fd
 			string s(line);
 			if (s.compare("S\r\n") == 0) {
 				secondary_fd = comm_fd;

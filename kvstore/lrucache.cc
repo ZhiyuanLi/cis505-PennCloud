@@ -220,14 +220,14 @@ bool LRUCache::put_helper(string user, string filename, string value, int comm_f
 
     print_memory_status(value.size(), comm_fd);
 
-	//check single user size
-	if (external || isCPUT) {
-		if (user_size[user] + value.size() >= capacity) {
-	        const char* feedback = "-ERR Your storage exceeds node capacity\r\n";
-	        servermsg(feedback, comm_fd);
-	        return true;
-		}
-	}
+    //check single user size
+    if (external || isCPUT) {
+        if (user_size[user] + value.size() >= capacity) {
+            const char* feedback = "-ERR Your storage exceeds node capacity\r\n";
+            servermsg(feedback, comm_fd);
+            return true;
+        }
+    }
 
     if (memory_used + value.size() <= capacity) {
 
@@ -263,7 +263,7 @@ bool LRUCache::put_helper(string user, string filename, string value, int comm_f
         memory_used += value.size();
 
         if (external || isCPUT) {
-        	user_size[user] += value.size();
+            user_size[user] += value.size();
         }
 
         if (external) {
@@ -351,7 +351,7 @@ void LRUCache::cput(string user, string filename, string old_value, string new_v
     string value_read;
     if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
         if (value_read.compare(old_value) == 0) {
-        	user_size[user] -= old_value.size();
+            user_size[user] -= old_value.size();
             memory_used -= old_value.size();
             put_helper(user, filename, new_value, comm_fd, true, true, seq_num);
         } else {
@@ -364,7 +364,7 @@ void LRUCache::cput(string user, string filename, string old_value, string new_v
 void LRUCache::dele(string user, string filename, int comm_fd, int seq_num) {
     string value_read;
     if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
-    	user_size[user] -= tablets[user]->value[filename].size();
+        user_size[user] -= tablets[user]->value[filename].size();
         memory_used -= tablets[user]->value[filename].size();
         tablets[user]->value.erase(filename);
         if (isPrimary) {
@@ -393,9 +393,13 @@ void LRUCache::getlist(string user, string type, int comm_fd){
                 if (counter == 0) {
                     const char* feedback = "+OK list as follows: \r\n";
                     servermsg(feedback, comm_fd);
+                } else if (counter == tablets[user]->value.size() - 1) {
+                    string fn_value = filename + "," + value_read;
+                    send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
+                } else {
+                    string fn_value = filename + "," + value_read + ",";
+                    send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
                 }
-                string fn_value = filename + "," + value_read + ",";
-                send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
 
                 // If -v
                 if (opt_v) {
