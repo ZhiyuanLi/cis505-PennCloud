@@ -27,8 +27,10 @@ public:
     void put(string user, string filename, string value, int comm_fd, bool external, int seq_num);
     void get(string user, string filename, int comm_fd);
     void cput(string user, string filename, string old_value, string new_value, int comm_fd, int seq_num);
-    void getlist(string user, string type, int comm_fd);
     void dele(string user, string filename, int comm_fd, int seq_num);
+    void getlist(string user, string type, int comm_fd);
+    void getfile(string user, int comm_fd);
+    void rename(string user, string old_filename, string new_filename, int comm_fd, int seq_num);  
     void servermsg(const char* msg, int comm_fd);
     int format_node(Node *user_node, string &row);  
     void write_to_chunk(string user, string row, string type);

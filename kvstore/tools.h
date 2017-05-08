@@ -7,6 +7,8 @@
 
 using namespace std;
 
+/* FIFO: Record the held back message with its sequence number. */
+
 void write_file(string dest, char* value);
 
 void write_file(string dest, string value);

@@ -22,6 +22,8 @@ public:
     void cput(char* &line, bool external, int comm_fd, int seq_num);
     void dele(char* &line, bool external, int comm_fd, int seq_num);
     void getlist(char *line, int comm_fd);
+    void getfile(char *line, int comm_fd);
+    void rename(char* &line, bool external, int comm_fd, int seq_num);
     void error(int comm_fd);
     void checkpointing();
     void load_checkpointing();

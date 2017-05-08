@@ -321,6 +321,7 @@ void Chunkserver::replay_log() {
 }
 
 void Chunkserver::send_to_secondary(char* line, string user) {
+
 	int sequence = seq_num_records[user] + 1;
 	seq_num_records[user] = sequence;
 	MsgPair *msg_held = new MsgPair();
@@ -331,6 +332,7 @@ void Chunkserver::send_to_secondary(char* line, string user) {
 	string temp(line);
 	string msg_to_s = to_string(sequence) + "," + temp;
 	send(secondary_fd, msg_to_s.c_str(), msg_to_s.size(), 0);
+	
 }
 
 /* PUT r,c,v */
@@ -454,6 +456,50 @@ void Chunkserver::getlist(char *line, int comm_fd) {
 		type.assign(rc.at(1), 0, rc.at(1).size() - 2);
 		// Get the value in the corresponding row and colummn
 		lru->getlist(user, type, comm_fd);
+	} else {
+		error(comm_fd);
+	}
+	delete [] arguments;
+}
+
+/* GETFILE user */
+void Chunkserver::getfile(char *line, int comm_fd) {
+
+	if (strlen(line) > 10) {
+		string to_be_parsed(line);
+		string user = to_be_parsed.substr(8, to_be_parsed.size() - 10);
+		// Get the filenames of the user
+		lru->getfile(user, comm_fd);
+	} else {
+		error(comm_fd);
+	}	
+}
+
+/* RENAME r,c1,c2 */
+void Chunkserver::rename(char* &line, bool external, int comm_fd, int seq_num) {
+
+	char *arguments = new char[strlen(line) - 7 + 1];
+	strncpy(arguments, line + 7, strlen(line) - 7);
+	arguments[strlen(line) - 7] = '\0';
+
+	string to_be_parsed(arguments);
+
+	vector<string> rc2;
+	parse_line(to_be_parsed, rc2, 3);
+
+	if (rc2.size() == 3) {
+		string user = rc2.at(0);
+		string old_filename = rc2.at(1);
+		string new_filename;
+		new_filename.assign(rc2.at(2), 0, rc2.at(2).size() - 2);
+		lru->rename(user, old_filename, new_filename, comm_fd, seq_num);
+
+		if (external) {
+			write_log(line);
+			if (isPrimary) {
+				send_to_secondary(line, user);
+			}
+		}	
 	} else {
 		error(comm_fd);
 	}

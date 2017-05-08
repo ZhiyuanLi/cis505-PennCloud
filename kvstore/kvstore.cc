@@ -4,7 +4,7 @@
  * Created April 2017 
  * CIS 505 (Software Systems), Prof. Linh
  * University of Pennsylvania 
- * @version: 05/06/2017 */
+ * @version: 05/07/2017 */
 /**********************************************************************/
 
 #include <stdlib.h>
@@ -67,18 +67,13 @@ map<string, int> seq_num_records;                // for FIFO
 											     // key: user 
                                                  // value: the highest sequence number proposed
 
+map<string, vector<MsgPair>> primary_holdback;   // for Crash Recovery
+											     // key: user 
+                                                 // value: a sequence of held back msg pairs
+
 map<string, vector<MsgPair>> secondary_holdback; // for FIFO
 											     // key: user 
                                                  // value: a sequence of held back msg pairs
-
-map<string, vector<MsgPair>> primary_holdback;          // for Crash Recovery
-											     // key: user 
-                                                 // value: a sequence of held back msg pairs
-
-map<int, string> seq_msg_mapping;          		 // for Crash Recovery
-											     // key: user 
-                                                 // value: a sequence of held back msg pairs
-
 
 /* Keep a record of the space left. */
 long long space_left = NODE_CAPACITY;
@@ -421,62 +416,65 @@ void *ps_worker (void *arg) {  // TODO
 		cout << "To primary: "  << greeting << endl;
 	}
 
-	int bufsize = 1024;
+	int bufsize = 10000000;
 
 	while (true) {
 
 		// Reads msg into buffer
 		char *buffer = new char [bufsize];
 		int nread = recv(sock_fd, buffer, bufsize - 1, 0);
-        buffer[nread]='\0';
+        buffer[nread] = '\0';
 
-        if (nread <= 0) {
-        	delete [] buffer;
-        	continue;
+        if (nread > 0) {
+
+        	// if -v
+			if (opt_v) {
+				print_time();
+				fprintf(stderr, "[%d] C: %s", sock_fd, buffer);
+			}
+
+			// Finds the index of the first <CR><LF>
+			int index = strstr(buffer, "\r\n") - buffer;
+
+			// Finds the index of the first comma
+			int comma_idx = strstr(buffer, ",") - buffer;
+
+			// Gets the sequence number
+			char *sq = new char [comma_idx + 1];
+			strncpy(sq, buffer, comma_idx);
+			sq[comma_idx] = '\0';
+
+			int seq_num = atoi(sq);
+
+			// Gets the operation
+			char *line = new char [index - comma_idx + 2];
+			strncpy(line, buffer + comma_idx + 1, index - comma_idx + 1);
+			line[index - comma_idx + 1] = '\0';
+
+			// Extracts command
+			string command = parse_command(line);
+
+			// Executes commands 
+			if (command.compare("put") == 0) {
+				server.put(line, true, sock_fd, seq_num);
+			}
+
+			else if (command.compare("cput") == 0) {
+				server.cput(line, true, sock_fd, seq_num);
+			}
+
+			else if (command.compare("dele") == 0) {
+				server.dele(line, true, sock_fd, seq_num);
+			}
+
+			else if (command.compare("rename") == 0) {
+				server.rename(line, true, sock_fd, seq_num);
+			}
+
+			//delete [] sq;
+			//delete [] line;
         }
-
-		// if -v
-		if (opt_v) {
-			print_time();
-			fprintf(stderr, "[%d] C: %s", sock_fd, buffer);
-		}
-
-		// Finds the index of the first <CR><LF>
-		int index = strstr(buffer, "\r\n") - buffer;
-
-		// Finds the index of the first comma
-		int comma_idx = strstr(buffer, ",") - buffer;
-
-		// Gets the sequence number
-		char *sq = new char [comma_idx + 1];
-		strncpy(sq, buffer, comma_idx);
-		sq[comma_idx] = '\0';
-
-		int seq_num = atoi(sq);
-
-		// Gets the operation
-		char *line = new char [index - comma_idx + 2];
-		strncpy(line, buffer + comma_idx + 1, index - comma_idx + 1);
-		line[index - comma_idx + 1] = '\0';
-
-		// Extracts command
-		string command = parse_command(line);
-
-		// Executes commands 
-		if(command.compare("put") == 0) {
-			server.put(line, true, sock_fd, seq_num);
-		}
-
-		if(command.compare("cput") == 0) {
-			server.cput(line, true, sock_fd, seq_num);
-		}
-
-		if(command.compare("dele") == 0) {
-			server.dele(line, true, sock_fd, seq_num);
-		}
-
-		delete [] sq;
-		delete [] line;
+		
 		delete [] buffer;
 	} // end while
 
@@ -484,6 +482,55 @@ void *ps_worker (void *arg) {  // TODO
 	close(sock_fd);
 	pthread_exit(NULL);	
 }
+
+/* This thread worker maintains a connection between P and S. */
+// void *ps_worker (void *arg) {
+
+// 	// Creates a stream socket
+// 	int sock_fd = socket(PF_INET, SOCK_STREAM, 0);
+// 	if (sock_fd < 0) {
+// 		fprintf(stderr, "Cannot open socket (%s)\n", strerror(errno));
+// 		exit(1);
+// 	}
+
+// 	// Associates a socket with a specific port or IP address
+// 	struct sockaddr_in primaryaddr;
+// 	bzero(&primaryaddr, sizeof(primaryaddr));
+// 	primaryaddr.sin_family = AF_INET;
+// 	primaryaddr.sin_port = htons(primary_port);
+// 	inet_pton(AF_INET, primary_ip.c_str(), &(primaryaddr.sin_addr));
+// 	connect(sock_fd, (struct sockaddr*)&primaryaddr, sizeof(primaryaddr));
+
+// 	// Report to primary
+// 	const char* greeting = "S\r\n";
+// 	send(sock_fd, greeting, strlen(greeting),0);
+
+// 	// if -v, print conversation with primary
+// 	if (opt_v) {
+// 		print_time();
+// 		cout << "To primary: "  << greeting << endl;
+// 	}
+
+// 	int bufsize = 1024;
+
+// 	while (true) {
+
+// 		// Reads msg into buffer
+// 		char *buffer = new char [bufsize];
+// 		int nread = recv(sock_fd, buffer, bufsize - 1, 0);
+//         buffer[nread]='\0';
+
+//         if (nread <= 0) continue;
+
+// 		// if -v
+// 		if (opt_v) {
+// 			print_time();
+// 			fprintf(stderr, "[%d] C: %s", sock_fd, buffer);
+// 		}
+// 	}
+
+// 	close(sock_fd);
+// }
 
 /* This thread worker does checkpointing periodically. */
 void *cp_worker (void *arg) {
@@ -514,35 +561,38 @@ void *worker (void *arg) {
 	int bufsize = 10000000;
 	int counter = 0;
 	bool isQuit = false;
-	int temp_buf_size = 0;
-	char *temp_buffer = new char[1];
-	temp_buffer[0] = '\0';
 
 	// Executes until user quits.
-	if (!isQuit) {
+	while (!isQuit) {
 
 		// Reads msg into buffer
 		char *line = new char [bufsize];
 		int nread = recv(comm_fd, line, bufsize - 1, 0);
-    	line[nread]='\0';
-
-		// if -v
-		if (opt_v) {
-			print_time();
-			fprintf(stderr, "[%d] C: %s\n", comm_fd, line);
-		}
+    	line [nread] = '\0';
 
 		// Counts the number of chars in current buffer. 
 		counter += nread;
 
-		// Record secondary's fd
-		string s(line);
-		if (s.compare("S\r\n") == 0) {
-			secondary_fd = comm_fd;
-			check_primary_holdback();
-		}		
-
 		if (nread > 0) {
+
+			// if -v
+			if (opt_v) {
+				print_time();
+				fprintf(stderr, "[%d] C: %s", comm_fd, line);
+			}
+
+			// Record secondary's fd
+			string s(line);
+			if (s.compare("S\r\n") == 0) {
+				secondary_fd = comm_fd;
+				check_primary_holdback();
+				delete [] line;
+				continue;
+			}	
+
+			if (comm_fd != secondary_fd) {
+				isQuit = true;
+			}	
 
 			// Extracts command
 			string command = parse_command(line);
@@ -554,26 +604,26 @@ void *worker (void *arg) {
 
 			else if (command.compare("get") == 0) {
 				server.get(line, comm_fd);
-
 			}
 
 			else if (command.compare("cput") == 0) {
 				server.cput(line, true, comm_fd, 0);
-
 			}
 
 			else if (command.compare("dele") == 0) {
 				server.dele(line, true, comm_fd, 0);
-
 			}
 
 			else if (command.compare("getlist") == 0) {
 				server.getlist(line, comm_fd);
+			}
 
+			else if (command.compare("getfile") == 0) {
+				server.getfile(line, comm_fd);
 			}
 
 			else if (command.compare("rename") == 0) {
-				//server.rename(line, comm_fd, 0);
+				server.rename(line, true, comm_fd, 0);
 			}
 
 			else if (command.compare("done") == 0) {
@@ -582,14 +632,15 @@ void *worker (void *arg) {
 
 			else if (command.compare("quit") == 0) {
 				isQuit = true;
+			} 
 
-			} else {
+			else {
 				server.error(comm_fd);
 			}
 		}
 		
 		delete [] line;
-	} // end while (!quit)
+	} 
 
 	// Closes the socket and terminate the thread
 	active_thread_manager(comm_fd);
@@ -662,12 +713,13 @@ int main(int argc, char *argv[])
 	pthread_create(&cp_thread, NULL, cp_worker, NULL);
 
 	while (true) {
+
 		struct sockaddr_in clientaddr;
 		socklen_t clientaddrlen = sizeof(clientaddr);
 
-		// if (!isPrimary) {
-		// 	isPrimary = true;
-		// }
+		if (thread_counter != 0 && !isPrimary) {
+			isPrimary = true;
+		}
 
 		// if -v, print server ip and port
 		if (opt_v) {
@@ -709,5 +761,6 @@ int main(int argc, char *argv[])
 		active_threads.push_back(*fd);
 		thread_counter += 1;
 	}
+
 	return 0;
 }
