@@ -113,6 +113,11 @@ Response::Response(Request req) {
     view_email(req);
   }
 
+  // forward email
+  else if (req.path.length() >= 8 && req.path.substr(0, 8) == FORWARD_EMAIL_URL) {
+    forward_email(req);
+  }
+
   // otherwise login
   else {
     login(req);
@@ -572,4 +577,12 @@ void Response::send_to_email_server(string message) {
   expectRemoteClose(&conn);
   closeConnection(&conn);
   freeBuffers(&conn);
+}
+
+/* forward email */
+void Response::forward_email(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/forward-email.html");
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
