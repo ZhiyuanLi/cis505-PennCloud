@@ -76,6 +76,25 @@ void computeDigest(char *data, int dataLengthBytes, unsigned char *digestBuffer)
 	MD5_Final(digestBuffer, &c);
 }
 
+/*hash funciton to get MD5*/
+std::string hash_to_MD5(std::string data){
+  unsigned char digestBuffer[MD5_DIGEST_LENGTH];
+
+  char d[data.length()+1];
+  strcpy(d, data.c_str());
+  d[data.length()] = '\0';
+
+  computeDigest(d, strlen(d), digestBuffer);
+
+  std::string res;
+  char buf[3] = {'\0'};
+  for(int i =0; i < MD5_DIGEST_LENGTH; i++){
+    sprintf(buf, "%02x",digestBuffer[i]);
+    res.append(buf);
+  }
+  return res;
+}
+
 char* parse_record (unsigned char *buffer, size_t r,
 		const char *section, ns_sect s,
 		int idx, ns_msg *m) {
@@ -224,6 +243,7 @@ string handle_rcpt(int comm_fd, char* buf, int &rcpt_flag, std::set<std::string>
 
 int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_list, int BUFFER_SIZE, int helo_flag){
 
+	using namespace std;
 	buf[rlen] = 0;
 	char DATAresp[] = "354 send the mail data, end with .\r\n";
 	dowrite(comm_fd, DATAresp, sizeof(DATAresp)-1);
@@ -243,9 +263,7 @@ int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_lis
 
 	string line_data;
 	line_data = lines.str();
-	unsigned char digestBuffer[16];
-	char * my_str = strdup(line_data.c_str());
-	computeDigest(my_str, sizeof(line_data) , digestBuffer);
+	string str5 = hash_to_MD5(line_data);
 
 	for(set<string>::iterator it = rcvr_list.begin(); it != rcvr_list.end();it++){
 //		ofstream userfile;
@@ -254,9 +272,6 @@ int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_lis
 //		userfile<<lines.str();
 //		userfile.close();
 		string user_name = *it;
-		std::ostringstream os;
-		os << digestBuffer;
-		std::string str5 = os.str();
 
 		string message = "put " + *it + "," + str5 + "," + line_data + "\r\n";
 		send_to_backend(message, user_name);
@@ -265,7 +280,6 @@ int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_lis
 
 	lines.str("");
 	lines.clear();
-	bzero(digestBuffer, sizeof(digestBuffer));
 
 	helo_flag = 0;
 	char OKresp[] = "250 OK\r\n";
@@ -485,13 +499,7 @@ int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE){
 
 			string line_data;
 			line_data = lines.str();
-			unsigned char digestBuffer[16];
-			char * my_str = strdup(line_data.c_str());
-			computeDigest(my_str, sizeof(line_data) , digestBuffer);
-
-			std::ostringstream os;
-			os << digestBuffer;
-			std::string str5 = os.str();
+			string str5 = hash_to_MD5(line_data);
 
 			string message = "put " + user_name + "," + str5 + "," + line_data + "\r\n";
 			send_to_backend(message, user_name);
@@ -506,7 +514,6 @@ int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE){
 
 			lines.str("");
 			lines.clear();
-			bzero(digestBuffer, sizeof(digestBuffer));
 
 			char OKresp[] = "250 OK\r\n";
 			dowrite(comm_fd, OKresp, sizeof(OKresp)-1);
