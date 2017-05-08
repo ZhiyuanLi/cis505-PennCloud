@@ -64,16 +64,29 @@ vector<string> send_to_backend(string message, string username) {
   do_write(sockfd, m, strlen(m));
 
   vector<string> rep;
-  string line = read_line(sockfd);
+  string line = read_rep_line(sockfd);
 
   debug(1, "[%d] Receive from backend:\n", sockfd);
 
-  while (!line.empty()) {
-    debug(1, "%d:[%s]\n", line.length(), line.c_str());
-    rep.push_back(line);
-    line = read_line(sockfd);
+  if (line.compare("!!!DONE!!!") != 0) {
+    if (message.substr(0, 7).compare("getlist") == 0) {
+      while (line.compare(",!!!DONE!!!") != 0) {
+        debug(1, "%d:[%s]\n", line.length(), line.c_str());
+        rep.push_back(line);
+        line = read_rep_line(sockfd);
+      }
+    } else if (message.substr(0, 7).compare("getfile") == 0) {
+
+    } else {
+      while (line.compare("!!!DONE!!!") != 0) {
+        debug(1, "%d:[%s]\n", line.length(), line.c_str());
+        rep.push_back(line);
+        line = read_rep_line(sockfd);
+      }
+    }
   }
 
+  debug(1, "%d:[%s]\n", line.length(), line.c_str());
   debug(1, "==================\n");
   close(sockfd);
 

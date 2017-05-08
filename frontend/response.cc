@@ -1,33 +1,33 @@
+#include <arpa/inet.h>
+#include <dirent.h>
+#include <fstream>
 #include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
-#include <vector>
-#include <fstream>
-#include <arpa/inet.h>
 #include <sys/stat.h>
-#include <dirent.h>
 #include <sys/types.h>
+#include <vector>
 
+#include "../webmail/webmail_utils.h"
 #include "constants.h"
-#include "utils.h"
 #include "request.h"
 #include "response.h"
 #include "store.h"
-#include "../webmail/webmail_utils.h"
+#include "utils.h"
 
 using namespace std;
 
 // username
 string user_name;
-static char* curr_user;
+static char *curr_user;
 
 Response::Response(Request req) {
   this->http_version = req.http_version;
   (this->headers)[CONNECTION] = "close";
 
-  const char* filename = ("." + req.path).c_str();
+  const char *filename = ("." + req.path).c_str();
 
   // static file
   if (req.path != HOME_URL && is_file_exist(filename)) {
@@ -59,8 +59,7 @@ Response::Response(Request req) {
   }
 
   // download file
-  else if (req.path.length() >= 10
-          && req.path.substr(0, 10) == "/download?") {
+  else if (req.path.length() >= 10 && req.path.substr(0, 10) == "/download?") {
     download_file(req);
   }
 
@@ -114,7 +113,8 @@ Response::Response(Request req) {
   }
 
   // forward email
-  else if (req.path.length() >= 8 && req.path.substr(0, 8) == FORWARD_EMAIL_URL) {
+  else if (req.path.length() >= 8 &&
+           req.path.substr(0, 8) == FORWARD_EMAIL_URL) {
     forward_email(req);
   }
 
@@ -122,7 +122,6 @@ Response::Response(Request req) {
   else {
     login(req);
   }
-
 }
 
 void Response::reply(int fd) {
@@ -166,18 +165,15 @@ void Response::reg(Request req) {
     string username = split(params.at(0), '=').at(1);
     string password = split(params.at(1), '=').at(1);
 
-    DIR* dir = opendir(username.c_str());
-    if (dir)
-    {
-        /* Directory exists. */
-        closedir(dir);
+    DIR *dir = opendir(username.c_str());
+    if (dir) {
+      /* Directory exists. */
+      closedir(dir);
+    } else if (ENOENT == errno) {
+      /* Directory does not exist. */
+      mkdir(username.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     }
-    else if (ENOENT == errno)
-    {
-        /* Directory does not exist. */
-        mkdir(username.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-    }
-    curr_user = (char*) (username + "/").c_str();
+    curr_user = (char *)(username + "/").c_str();
 
     if (is_user_exist(username)) {
       this->body = get_file_content_as_string("html/user-already-exist.html");
@@ -213,7 +209,7 @@ void Response::login(Request req) {
     if (is_login_valid(username, password)) {
       add_session(username);
       already_login = true;
-    }else{
+    } else {
       this->body = get_file_content_as_string("html/login-failed.html");
       (this->headers)[CONTENT_LEN] = to_string((this->body).length());
     }
@@ -260,7 +256,8 @@ void Response::handle_upload(Request req) {
   store_file(dir, filename, file_content);
 
   // send to KV store
-  string message("put " + user_name + "," + filename + "," + file_content + "\r\n");
+  string message("put " + user_name + "," + filename + "," + file_content +
+                 "\r\n");
   send_to_backend(message, user_name);
 
   this->body = get_file_content_as_string("html/upload.html");
@@ -338,19 +335,18 @@ void Response::download(Request req) {
     replace_all(this->body, "$allFolders", all_folders);
     (this->headers)[CONTENT_LEN] = to_string((this->body).length());
   }
-
 }
 
 /* display file content */
-void Response::file(const char* filename) {
-    debug(1, "[file exists]: ");
-    debug(1, filename);
-    debug(1, "\r\n");
-    string file_content(get_file_content_as_string(filename));
-    this->status = OK;
-    (this->headers)[CONTENT_TYPE] = "text/plain";
-    this->body = file_content;
-    (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+void Response::file(const char *filename) {
+  debug(1, "[file exists]: ");
+  debug(1, filename);
+  debug(1, "\r\n");
+  string file_content(get_file_content_as_string(filename));
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/plain";
+  this->body = file_content;
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
 /* create new folder */
@@ -363,10 +359,12 @@ void Response::create_new_folder(Request req) {
   store_file(dir, foldername, "empty");
 
   // send to KV store
-  string message("put " + user_name + "," + foldername + "," + "empty" + "\r\n");
+  string message("put " + user_name + "," + foldername + "," + "empty" +
+                 "\r\n");
   send_to_backend(message, user_name);
 
-  this->body = get_file_content_as_string("html/create-new-folder-success.html");
+  this->body =
+      get_file_content_as_string("html/create-new-folder-success.html");
   replace_all(this->body, "$foldername", foldername);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
@@ -386,7 +384,7 @@ void Response::rename_file(Request req) {
 
   string dir(curr_user);
   rename((dir + foldername + oldname).c_str(),
-          (dir + foldername + newname).c_str());
+         (dir + foldername + newname).c_str());
   this->body = get_file_content_as_string("html/rename-file-success.html");
   replace_all(this->body, "$oldname", oldname);
   replace_all(this->body, "$newname", newname);
@@ -428,8 +426,8 @@ void Response::delete_folder(Request req) {
   for (vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
     string file_path(dir + *it);
     if (foldername.length() > 0) {
-      if (*it == (foldername + ".folder")
-          || (*it).find(foldername + "+") != string::npos) {
+      if (*it == (foldername + ".folder") ||
+          (*it).find(foldername + "+") != string::npos) {
         remove(file_path.c_str());
 
         // send to KV store
@@ -462,10 +460,10 @@ void Response::move_file(Request req) {
   string dir(curr_user);
   if (oldfolder.length() > 0) {
     rename((dir + oldfolder + "+" + filename).c_str(),
-          (dir + newfolder + "+" + filename).c_str());
+           (dir + newfolder + "+" + filename).c_str());
   } else {
     rename((dir + filename).c_str(),
-          (dir + newfolder + "+" + filename).c_str());
+           (dir + newfolder + "+" + filename).c_str());
   }
 
   this->body = get_file_content_as_string("html/move-file-success.html");
@@ -482,8 +480,8 @@ void Response::download_file(Request req) {
   (this->headers)[CONTENT_LEN] = to_string(filesize);
 
   // check content type
-  if (file_path.find("jpeg") != string::npos
-      || file_path.find("jpg") != string::npos) {
+  if (file_path.find("jpeg") != string::npos ||
+      file_path.find("jpg") != string::npos) {
     (this->headers)[CONTENT_TYPE] = "image/jpeg";
   } else if (file_path.find("png") != string::npos) {
     (this->headers)[CONTENT_TYPE] = "image/png";
@@ -494,7 +492,7 @@ void Response::download_file(Request req) {
   }
 
   // get file content
-  char* buf = (char*) malloc(sizeof(char) * filesize);
+  char *buf = (char *)malloc(sizeof(char) * filesize);
   fstream file(file_path.c_str(), ios::in | ios::out | ios::binary);
   this->body = "";
   for (int i = 0; i < filesize; i++) {
@@ -550,6 +548,50 @@ void Response::inbox(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/inbox.html");
+  // send to KV store
+  string message("getlist " + user_name + ",email" + "\r\n");
+  vector<string> rep = send_to_backend(message, user_name);
+
+  int count = 0;
+  string maillist;
+  debug(1, "Email List:\n");
+  for (int i = 0; i < rep.size(); i++) {
+
+    string line = rep.at(i);
+
+    if (line.at(0) == ',') {
+      line = line.substr(1, line.length() - 1);
+    }
+    if (line.substr(0, 2).compare("##") == 0) { // get one new email
+      count++;
+      // FROM
+      // cout << "FROM   " << line << endl;
+      vector<string> f_tokens = split(line.c_str(), ',');
+      string address = f_tokens.at(1).substr(7, f_tokens.at(1).length() - 8);
+
+      // cout << address << '\n';
+
+      maillist += "<tr>\n";
+      maillist += "<th scope=\" row \">" + to_string(count) + "</th>\n";
+      maillist += "<td>" + address + "</td>\n";
+
+      // Subject
+      line = rep.at(i + 3);
+      // cout << "Subject   " << line << endl;
+      maillist += "<td>" + line.substr(9, line.length() - 9) + "</td>\n";
+
+      // Date
+      line = rep.at(i + 2);
+      // cout << "Date   " << line << endl;
+      maillist += "<td>" + line.substr(6, line.length() - 6) + "</td>\n";
+
+      maillist += "</tr>\n";
+      i = i + 6;
+    }
+  }
+
+  debug(1, "============End of Email List:\n");
+  replace_all(this->body, "$maillist", maillist);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 

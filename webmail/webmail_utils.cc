@@ -260,6 +260,7 @@ int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_lis
 		data_buf[currlen] = 0;
 		lines << data_buf;
 	}
+	lines << data_buf;
 
 	string line_data;
 	line_data = lines.str();

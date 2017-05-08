@@ -1,16 +1,15 @@
+#include <ctime>
 #include <dirent.h>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stdarg.h>
 #include <stdio.h>
+#include <streambuf>
 #include <string>
 #include <unistd.h>
 #include <vector>
-#include <streambuf>
-#include <iomanip>
-#include <ctime>
-
 
 #include "utils.h"
 
@@ -53,7 +52,7 @@ int do_write(int fd, char *buf, int len) {
   return 1;
 }
 
-/* read a line from a fd, till \r\n or end of file*/
+/* read a line from a fd, till \r\n , \n or end of file*/
 string read_line(int fd) {
   string line;
   char c;
@@ -80,6 +79,32 @@ read:
     line += '\r';
     line += '\n';
   }
+  line = line.substr(0, line.length() - 2);
+  return line;
+}
+
+/* read a line from a fd, till \r\n or end of file*/
+string read_rep_line(int fd) {
+  string line;
+  char c;
+
+read:
+  do {
+    if (do_read(fd, &c, sizeof(c)) <= 0) {
+      return line;
+    }
+    line += c;
+  } while (c != '\r');
+
+  if (do_read(fd, &c, sizeof(c)) <= 0) {
+    return line;
+  }
+  if (c == '\n') { //'\r\n' end of the message
+    line += c;
+  } else { //'\r' not followed with '\n', read again
+    goto read;
+  }
+
   line = line.substr(0, line.length() - 2);
   return line;
 }
@@ -136,34 +161,34 @@ vector<string> list_all_files(string dir) {
 
 /* check if a given file exists */
 bool is_file_exist(const char *filename) {
-    ifstream infile(filename);
-    return infile.good();
+  ifstream infile(filename);
+  return infile.good();
 }
 
 /* get file content as string from file name */
 string get_file_content_as_string(const char *filename) {
-    ifstream t(filename);
-    string str((istreambuf_iterator<char>(t)), istreambuf_iterator<char>());
-    return str;
+  ifstream t(filename);
+  string str((istreambuf_iterator<char>(t)), istreambuf_iterator<char>());
+  return str;
 }
 
 /* replace all substring in a string */
-void replace_all(string& str, const string& from, const string& to) {
-    if (from.empty()) {
-      return;
-    }
+void replace_all(string &str, const string &from, const string &to) {
+  if (from.empty()) {
+    return;
+  }
 
-    size_t start_pos = 0;
-    while((start_pos = str.find(from, start_pos)) != string::npos) {
-        str.replace(start_pos, from.length(), to);
-        start_pos += to.length();
-    }
+  size_t start_pos = 0;
+  while ((start_pos = str.find(from, start_pos)) != string::npos) {
+    str.replace(start_pos, from.length(), to);
+    start_pos += to.length();
+  }
 }
 
 /* get file size */
-int file_size(const char* filename) {
-    ifstream in(filename, ifstream::ate | ifstream::binary);
-    return in.tellg();
+int file_size(const char *filename) {
+  ifstream in(filename, ifstream::ate | ifstream::binary);
+  return in.tellg();
 }
 
 /* get current time */
@@ -176,18 +201,18 @@ string get_current_time() {
 
 /* url decode */
 string url_decode(string &str) {
-    string ret;
-    char ch;
-    int i, ii;
-    for (i = 0; i < str.length(); i++) {
-        if (int(str[i]) == 37) {
-            sscanf(str.substr(i + 1, 2).c_str(), "%x", &ii);
-            ch = static_cast<char>(ii);
-            ret += ch;
-            i = i + 2;
-        } else {
-            ret += str[i];
-        }
+  string ret;
+  char ch;
+  int i, ii;
+  for (i = 0; i < str.length(); i++) {
+    if (int(str[i]) == 37) {
+      sscanf(str.substr(i + 1, 2).c_str(), "%x", &ii);
+      ch = static_cast<char>(ii);
+      ret += ch;
+      i = i + 2;
+    } else {
+      ret += str[i];
     }
-    return (ret);
+  }
+  return (ret);
 }

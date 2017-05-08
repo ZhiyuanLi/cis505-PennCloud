@@ -19,6 +19,9 @@ int do_write(int fd, char *buf, int len);
 /* read a line from a fd, till \r\n or end of file*/
 string read_line(int fd);
 
+/* read a line from a fd, till \r\n or end of file*/
+string read_rep_line(int fd);
+
 /* split a string by delimiter */
 vector<string> split(const string &s, char delim);
 
