@@ -132,7 +132,7 @@ void *worker(void *arg)
 
 							//step 5 send
 							if (strcasecmp(send, cmp_send) == 0){
-								handle_send(comm_fd, buf, rlen, rcvr_list, BUFFER_SIZE, helo_flag);
+								handle_send(comm_fd, buf, rlen, BUFFER_SIZE);
 							}else
 
 							//step 6 quit

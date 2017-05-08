@@ -13,8 +13,6 @@
 
 int main(int argc, char *argv[])
 {
-  if (argc != 2)
-    panic("Syntax: %s <port>", argv[0]);
 
   // Initialize the buffers
 

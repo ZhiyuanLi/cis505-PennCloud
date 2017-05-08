@@ -52,9 +52,7 @@ int main(){
 
 	struct Message Msg;
 	Msg.messageID = 0;
-	Msg.unmark_flag = 0; // delete message flag
-	Msg.begin_line = 1;
-	Msg.end_line = 0;
+
 	int max_msg = 0;
 
 	ifstream file("mqueue", ifstream::in | ifstream::binary);
@@ -65,10 +63,8 @@ int main(){
 		if (line.compare(0, 5, "From:") == 0) {
 			if(i != 0) MsgQueue[i-1] = Msg;
 			Msg.messageID ++;
-			Msg.begin_line = Msg.end_line + 1;
 			i++;
 		}
-		Msg.end_line ++;
 	}
 	MsgQueue[i-1] = Msg;
 	max_msg = Msg.messageID;
@@ -87,7 +83,7 @@ int main(){
 		while(getline(file, line)){
 
 			lineNo++;
-			if (lineNo > MsgQueue[i].begin_line && lineNo < MsgQueue[i].end_line){
+			if (lineNo > 1 && lineNo < 13){
 				if (line.compare(0,3,"To:") == 0){
 
 					// extract receiver information
@@ -111,7 +107,8 @@ int main(){
 							string server_name  = domain_buffer.substr(found+1); // extract server name
 							const char* host = server_name.c_str();
 							unsigned char host_buffer[BUFFER_SIZE];
-							int r_size = res_query(host,C_IN,T_MX, host_buffer, BUFFER_SIZE);
+							cout<<"<: "<<host<<endl;
+							int r_size = res_query(host, C_IN, T_MX, host_buffer, BUFFER_SIZE);
 
 							if(r_size == -1){
 								char err_host[] = "ERR: Cannot find host server!";
@@ -153,6 +150,10 @@ int main(){
 							int nameservers = ntohs (hdr->nscount);
 							int addrrecords = ntohs (hdr->arcount);
 
+							std::cout << "Reply: question: " << question << ", answers: " << answers
+							              << ", nameservers: " << nameservers
+							              << ", address records: " << addrrecords << "\n";
+
 							ns_msg m;
 							int k = ns_initparse (host_buffer, r_size, &m);
 							if (k == -1) {
@@ -165,6 +166,18 @@ int main(){
 								if (k == -1) {
 									std::cerr << errno << " " << strerror (errno) << "\n";
 								}
+							}
+
+							for (int i = 0; i < answers; ++i) {
+								parse_record (host_buffer, r_size, "answers", ns_s_an, i, &m);
+							}
+
+							for (int i = 0; i < nameservers; ++i) {
+								parse_record (host_buffer, r_size, "nameservers", ns_s_ns, i, &m);
+							}
+
+							for (int i = 0; i < addrrecords; ++i) {
+								parse_record (host_buffer, r_size, "addrrecords", ns_s_ar, i, &m);
 							}
 
 							char* IP_address = parse_record (host_buffer, r_size, "addrrecords", ns_s_ar, 2, &m);
