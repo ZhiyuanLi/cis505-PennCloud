@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+# kvstore
+kvstore/checkpointing/
+kvstore/metadata/

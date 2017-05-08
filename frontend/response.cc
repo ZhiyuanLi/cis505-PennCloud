@@ -521,8 +521,8 @@ void Response::handle_send_email(Request req) {
 
   // decoding
   // replace_all(sent_to, "%40", "@");
-  // replace_all(title, "+", " ");
-  // replace_all(content, "+", " ");
+  replace_all(title, "+", " ");
+  replace_all(content, "+", " ");
 
   string message;
   message += "Send\r\n";
@@ -568,6 +568,8 @@ void Response::send_to_email_server(string message) {
 
   // Close the connection
   writeString(&conn, "QUIT\r\n");
+  DoRead(&conn);
+  expectRemoteClose(&conn);
   closeConnection(&conn);
   freeBuffers(&conn);
 }

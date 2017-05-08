@@ -166,11 +166,11 @@ void *worker(void *arg)
 									}
 		}
 	}
-	mut.lock();
-	fds.erase(comm_fd);
-	pthread_t tid = pthread_self();
-	threads.erase(tid);
-	mut.unlock();
+	// mut.lock();
+	// fds.erase(comm_fd);
+	// pthread_t tid = pthread_self();
+	// threads.erase(tid);
+	// mut.unlock();
 
 	pthread_exit(NULL);
 }
@@ -212,7 +212,7 @@ void aflaghandler()
 int main(int argc, char *argv[])
 {
 
-	signal(SIGINT, INThandler);
+	// signal(SIGINT, INThandler);
 	char c;
 	const char* optstring = "p:av";
 
@@ -245,7 +245,7 @@ int main(int argc, char *argv[])
 	servaddr.sin_addr.s_addr = htons(INADDR_ANY);
 	servaddr.sin_port = htons(port);
 	bind(listen_fd, (struct sockaddr*)&servaddr, sizeof(servaddr));
-	listen(listen_fd, 10);
+	listen(listen_fd, 1000);
 
 	while (true) {
 		struct sockaddr_in clientaddr;
@@ -261,10 +261,10 @@ int main(int argc, char *argv[])
 
 		pthread_create(&thread, NULL, worker, fd);
 
-		mut.lock();
-		fds.insert(*fd);
-		threads.insert(thread);
-		mut.unlock();
+		// mut.lock();
+		// fds.insert(*fd);
+		// threads.insert(thread);
+		// mut.unlock();
 	}
 	return 0;
 }
