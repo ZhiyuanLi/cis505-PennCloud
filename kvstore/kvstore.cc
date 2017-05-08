@@ -597,46 +597,41 @@ void *worker (void *arg) {
 			// Extracts command
 			string command = parse_command(line);
 
+			string done = "!!!DONE!!!\r\n";
+
 			// Executes commands
 			if (command.compare("put") == 0) {
 				server.put(line, true, comm_fd, 0);
-				string done = "!!!DONE!!!\r\n";
             	send(comm_fd, done.c_str(), done.size(), 0);
 			}
 
 			else if (command.compare("get") == 0) {
 				server.get(line, comm_fd);
-				string done = "!!!DONE!!!\r\n";
             	send(comm_fd, done.c_str(), done.size(), 0);
 			}
 
 			else if (command.compare("cput") == 0) {
 				server.cput(line, true, comm_fd, 0);
-				string done = "!!!DONE!!!\r\n";
             	send(comm_fd, done.c_str(), done.size(), 0);
 			}
 
 			else if (command.compare("dele") == 0) {
 				server.dele(line, true, comm_fd, 0);
-				string done = "!!!DONE!!!\r\n";
             	send(comm_fd, done.c_str(), done.size(), 0);
 			}
 
 			else if (command.compare("getlist") == 0) {
 				server.getlist(line, comm_fd);
-				string done = "!!!DONE!!!\r\n";
             	send(comm_fd, done.c_str(), done.size(), 0);
 			}
 
 			else if (command.compare("getfile") == 0) {
 				server.getfile(line, comm_fd);
-				string done = "!!!DONE!!!\r\n";
             	send(comm_fd, done.c_str(), done.size(), 0);
 			}
 
 			else if (command.compare("rename") == 0) {
 				server.rename(line, true, comm_fd, 0);
-				string done = "!!!DONE!!!\r\n";
             	send(comm_fd, done.c_str(), done.size(), 0);
 			}
 
