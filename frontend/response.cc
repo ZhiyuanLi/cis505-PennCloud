@@ -523,7 +523,7 @@ void Response::handle_send_email(Request req) {
   message += "Date: " + curr_time + "\r\n";
   message += "Subject: " + title + "\r\n";
   message += content + "\r\n";
-  message ++ ".\r\n";
+  message += ".\r\n";
   send_to_email_server(message);
 
   this->status = OK;

@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
   DoRead(&conn1);
   expectNoMoreData(&conn1);
 
-  writeString(&conn1, "Send\r\nFrom: Benjamin Franklin <benjamin.franklin@localhost>\r\nTo: Mengjin <mengjin@seas.upenn.edu>\r\nDate: Fri, 21 Oct 2016 18:29:11 -0400\r\nSubject: Testing my new email account\r\nMengjin,\r\nI just wanted to see whether my new email account works.\r\n        - Ben");
+  writeString(&conn1, "Send\r\nFrom: <benjamin.franklin@localhost.com>\r\nTo: <mengjin@seas.upenn.edu>\r\nDate: Fri, 21 Oct 2016 18:29:11 -0400\r\nSubject: Testing my new email account\r\nMengjin,\r\nI just wanted to see whether my new email account works.\r\n        - Ben");
   DoRead(&conn1);
   expectNoMoreData(&conn1);
 
@@ -84,9 +84,3 @@ int main(int argc, char *argv[])
   freeBuffers(&conn1);
   return 0;
 }
-
-
-
-
-
-

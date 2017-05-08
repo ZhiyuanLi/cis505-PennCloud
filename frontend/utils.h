@@ -46,4 +46,7 @@ void replace_all(string &str, const string &from, const string &to);
 /* get file size */
 int file_size(const char* filename);
 
+/* get current time */
+string get_current_time();
+
 #endif
