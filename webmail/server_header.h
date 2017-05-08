@@ -35,9 +35,7 @@ struct connection {
 
 struct Message{
 	int messageID;
-	int unmark_flag = 0;
-	int begin_line;
-	int end_line;
+	string rcvr;
 };
 
 void log(const char *prefix, const char *data, int len, const char *suffix);
@@ -63,8 +61,6 @@ int handle_helo(int comm_fd, int rlen, int helo_flag);
 int handle_mail(int comm_fd, char* buf, int rlen, int mail_flag, char* reverse_path, std::set<std::string> rcvr_list);
 string handle_rcpt(int comm_fd, char* buf, int &rcpt_flag, std::set<std::string> rcvr_list);
 int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_list, int BUFFER_SIZE, int helo_flag);
-int handle_send(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_list, int BUFFER_SIZE, int helo_flag);
-
-
+int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE);
 
 #endif /* defined(__client_header_h__) */
