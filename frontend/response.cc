@@ -559,6 +559,9 @@ void Response::inbox(Request req) {
 
     string line = rep.at(i);
 
+    if (line.length() <= 16) {
+      continue;
+    }
     if (line.at(0) == ',') {
       line = line.substr(1, line.length() - 1);
     }
