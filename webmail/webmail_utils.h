@@ -1,3 +1,6 @@
+#ifndef WEBMAIL_UTILS_H
+#define WEBMAIL_UTILS_H
+
 #include <string>
 #include <pthread.h>
 #include <stdlib.h>
@@ -17,8 +20,6 @@
 #include <arpa/nameser.h>
 #include <resolv.h>
 using namespace std;
-#ifndef __server_header_h__
-#define __server_header_h__
 
 #define panic(a...) do { fprintf(stderr, a); fprintf(stderr, "\n"); exit(1); } while (0)
 

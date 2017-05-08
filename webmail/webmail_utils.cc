@@ -21,7 +21,7 @@
 #include <errno.h>
 
 
-#include "server_header.h"
+#include "webmail_utils.h"
 
 int read_command(int fd, char *buf) {
 	// read from client, a char at each time
@@ -79,8 +79,6 @@ char* parse_record (unsigned char *buffer, size_t r,
 		const char *section, ns_sect s,
 		int idx, ns_msg *m) {
 
-	char address[] = "Not found";
-
 	ns_rr rr;
 	int k = ns_parserr (m, s, idx, &rr);
 	if (k == -1) {
@@ -105,7 +103,7 @@ char* parse_record (unsigned char *buffer, size_t r,
 		char name2[size];
 		ns_name_ntop (name, name2, size);
 		std::cout << pref << " " << name2;
-		return address;
+		return NULL;
 	}
 	else if (t == T_A) {
 		cout<<"t == T_A"<<endl;
@@ -122,7 +120,7 @@ char* parse_record (unsigned char *buffer, size_t r,
 		char name2[size];
 		ns_name_ntop (name, name2, size);
 		std::cout << name2;
-		return address;
+		return NULL;
 	}
 	else {
 		std::cout << "unhandled record";
@@ -756,12 +754,3 @@ void freeBuffers(struct connection *conn)
 	free(conn->buf);
 	conn->buf = NULL;
 }
-
-
-
-
-
-
-
-
-
