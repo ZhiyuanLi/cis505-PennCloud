@@ -49,4 +49,7 @@ int file_size(const char* filename);
 /* get current time */
 string get_current_time();
 
+/* url decode */
+string url_decode(string &str);
+
 #endif

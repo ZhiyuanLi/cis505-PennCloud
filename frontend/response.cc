@@ -513,11 +513,16 @@ void Response::send_email(Request req) {
 
 /* handle send email */
 void Response::handle_send_email(Request req) {
-  vector<string> params = split(req.body.c_str(), '&');
+  vector<string> params = split(url_decode(req.body).c_str(), '&');
   string sent_to = split(params.at(0), '=').at(1);
   string title = split(params.at(1), '=').at(1);
   string content = split(params.at(2), '=').at(1);
   string curr_time = get_current_time();
+
+  // decoding
+  // replace_all(sent_to, "%40", "@");
+  // replace_all(title, "+", " ");
+  // replace_all(content, "+", " ");
 
   string message;
   message += "Send\r\n";
