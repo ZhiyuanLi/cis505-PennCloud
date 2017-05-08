@@ -273,7 +273,7 @@ int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_lis
 //		userfile.close();
 		string user_name = *it;
 
-		string message = "put " + *it + "," + str5 + "," + line_data + "\r\n";
+		string message = "put " + *it + ",##" + str5 + "," + line_data + "\r\n";
 		send_to_backend(message, user_name);
 
 	}
@@ -501,7 +501,7 @@ int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE){
 			line_data = lines.str();
 			string str5 = hash_to_MD5(line_data);
 
-			string message = "put " + user_name + "," + str5 + "," + line_data + "\r\n";
+			string message = "put " + user_name + ",##" + str5 + "," + line_data + "\r\n";
 			send_to_backend(message, user_name);
 
 			//	for(set<string>::iterator it = rcvr_list.begin(); it != rcvr_list.end();it++){
