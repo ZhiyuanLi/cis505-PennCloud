@@ -119,6 +119,12 @@ Response::Response(Request req) {
     forward_email(req);
   }
 
+  // reply email
+  else if (req.path.length() >= 11
+            && req.path.substr(0, 11) == REPLY_EMAIL_URL) {
+    reply_email(req);
+  }
+
   //logout
   else if (req.path == LOGOUT_URL) {
     delete_session(user_name);
@@ -627,6 +633,8 @@ void Response::view_email(Request req) {
   replace_all(this->body, "$date", date);
 
   // reply
+  string reply_query = "email=" + from + "&title=" + title;
+  replace_all(this->body, "$replyQuery", reply_query);
 
   // forward
   string forward_query = "title=" + title;
@@ -664,6 +672,21 @@ void Response::forward_email(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/forward-email.html");
+  replace_all(this->body, "$title", title);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* reply email */
+void Response::reply_email(Request req) {
+  string path = req.path.substr(12);
+  vector<string> params = split(url_decode(path).c_str(), '&');
+  string email = split(params.at(0), '=').at(1);
+  string title = "RE: " + split(params.at(1), '=').at(1);
+
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/reply-email.html");
+  replace_all(this->body, "$email", email);
   replace_all(this->body, "$title", title);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }

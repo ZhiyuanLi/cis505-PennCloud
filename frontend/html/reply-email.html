@@ -15,33 +15,25 @@
 
   <body>
     <div class="container">
-      <h1>View Email</h1>
-      <form>
+      <h1>Reply Email</h1>
+      <form method="POST" action="/sendemail">
         <div class="form-group">
-          <label for="example-email-input" class="col-2 col-form-label">From</label>
+          <label for="example-email-input" class="col-2 col-form-label">To</label>
           <div class="col-10">
-            <input class="form-control" type="email" value="$from" id="example-email-input">
+            <input class="form-control" name="sentto" type="email" value="$email" id="example-email-input">
           </div>
         </div>
         <div class="form-group">
-          <label for="example-text-input" class="col-2 col-form-label">Title</label>
+          <label for="example-text-input" class="col-2 col-form-label">Subject</label>
           <div class="col-10">
-            <input class="form-control" type="text" value="$title" id="example-text-input">
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="example-text-input" class="col-2 col-form-label">Date</label>
-          <div class="col-10">
-            <input class="form-control" type="text" value="$date" id="example-text-input">
+            <input class="form-control" name="title" type="text" value="$title" id="example-text-input">
           </div>
         </div>
         <div class="form-group">
           <label for="exampleTextarea">Content</label>
-          <textarea class="form-control" id="exampleTextarea" rows="3">$content</textarea>
+          <textarea class="form-control" name="content" id="exampleTextarea" rows="3">$content</textarea>
         </div>
-        <a class="btn btn-primary" href="replyemail?$replyQuery" role="button">Reply</a>
-        <a class="btn btn-success" href="forward?$forwardQuery" role="button">Forward</a>
-        <a class="btn btn-danger" href="#" role="button">Delete</a>
+        <button type="submit" class="btn btn-primary">Send</button>
       </form>
     </div>
   </body>
