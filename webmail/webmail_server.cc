@@ -26,7 +26,7 @@
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
-#include "server_header.h"
+#include "webmail_utils.h"
 using namespace std;
 
 int aflag = 0;

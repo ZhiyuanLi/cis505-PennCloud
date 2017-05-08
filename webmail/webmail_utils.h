@@ -17,8 +17,8 @@
 #include <arpa/nameser.h>
 #include <resolv.h>
 using namespace std;
-#ifndef __server_header_h__
-#define __server_header_h__
+#ifndef __webmail_utils_h__
+#define __webmail_utils_h__
 
 #define panic(a...) do { fprintf(stderr, a); fprintf(stderr, "\n"); exit(1); } while (0)
 

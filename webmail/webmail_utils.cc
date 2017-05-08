@@ -21,7 +21,8 @@
 #include <errno.h>
 
 
-#include "server_header.h"
+#include "webmail_utils.h"
+#include "../store.h"
 
 int read_command(int fd, char *buf) {
 	// read from client, a char at each time
@@ -79,8 +80,6 @@ char* parse_record (unsigned char *buffer, size_t r,
 		const char *section, ns_sect s,
 		int idx, ns_msg *m) {
 
-	char address[] = "Not found";
-
 	ns_rr rr;
 	int k = ns_parserr (m, s, idx, &rr);
 	if (k == -1) {
@@ -105,7 +104,7 @@ char* parse_record (unsigned char *buffer, size_t r,
 		char name2[size];
 		ns_name_ntop (name, name2, size);
 		std::cout << pref << " " << name2;
-		return address;
+		return NULL;
 	}
 	else if (t == T_A) {
 		cout<<"t == T_A"<<endl;
@@ -122,7 +121,7 @@ char* parse_record (unsigned char *buffer, size_t r,
 		char name2[size];
 		ns_name_ntop (name, name2, size);
 		std::cout << name2;
-		return address;
+		return NULL;
 	}
 	else {
 		std::cout << "unhandled record";
@@ -165,10 +164,8 @@ int handle_mail(int comm_fd, char* buf, int rlen, int mail_flag, char* reverse_p
 		bzero(&reverse_path,sizeof(reverse_path));
 		rcvr_list.clear();
 		string str = domain_buffer.substr(10, found);
-		cout<<"str = "<<str<<endl;
 		//		strcpy(reverse_path, str.c_str());
 		mail_flag = 1;
-		cout<<"here4"<<endl;
 		char OKresp[] = "250 OK\r\n";
 		dowrite(comm_fd, OKresp, sizeof(OKresp)-1);
 
@@ -251,12 +248,16 @@ int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_lis
 	computeDigest(my_str, sizeof(line_data) , digestBuffer);
 
 	for(set<string>::iterator it = rcvr_list.begin(); it != rcvr_list.end();it++){
-		ofstream userfile;
-		userfile.open(*it,ios::app);
-		userfile<< "##"<<digestBuffer<<endl;
-		userfile<<lines.str();
-		userfile.close();
+//		ofstream userfile;
+//		userfile.open(*it,ios::app);
+//		userfile<< "##"<<digestBuffer<<endl;
+//		userfile<<lines.str();
+//		userfile.close();
+		string message = "put " + *it + "," + to_string(digestBuffer) + "," + line_data + "\r\n";
+		send_to_backend(message, user_name);
+
 	}
+
 	lines.str("");
 	lines.clear();
 	bzero(digestBuffer, sizeof(digestBuffer));
@@ -268,7 +269,6 @@ int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_lis
 }
 
 int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE){
-	cout<<"send!!"<<endl;
 
 	int sent_flag = 0;
 	buf[rlen] = 0;
@@ -324,15 +324,15 @@ int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE){
 
 	for (int j = 0; j < max_msg; j++){
 
-		string domain_buffer = MsgQueue[j].rcvr;
+		string domain_buffer = MsgQueue[j].rcvr; // mengjin@seas.upenn.edu
 		std::size_t found = domain_buffer.find_first_of("@");
 		string server_name = domain_buffer.substr(found+1); // extract server name
+		string user_name = domain_buffer.substr(0, found);
 
 		if (server_name.compare(0, 13, "localhost.com") != 0){
 
 			const char* host = server_name.c_str();
 			unsigned char host_buffer[BUFFER_SIZE];
-			cout<<"host = "<<host<<endl;
 			int r_size = res_query(host,C_IN,T_MX, host_buffer, BUFFER_SIZE);
 
 			if(r_size == -1){
@@ -375,9 +375,9 @@ int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE){
 			int nameservers = ntohs (hdr->nscount);
 			int addrrecords = ntohs (hdr->arcount);
 
-			std::cout << "Reply: question: " << question << ", answers: " << answers
-					<< ", nameservers: " << nameservers
-					<< ", address records: " << addrrecords << "\n";
+			//			std::cout << "Reply: question: " << question << ", answers: " << answers
+			//					<< ", nameservers: " << nameservers
+			//					<< ", address records: " << addrrecords << "\n";
 
 			ns_msg m;
 			int k = ns_initparse (host_buffer, r_size, &m);
@@ -393,17 +393,17 @@ int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE){
 				}
 			}
 
-			for (int i = 0; i < answers; ++i) {
-				parse_record (host_buffer, r_size, "answers", ns_s_an, i, &m);
-			}
-
-			for (int i = 0; i < nameservers; ++i) {
-				parse_record (host_buffer, r_size, "nameservers", ns_s_ns, i, &m);
-			}
-
-			for (int i = 0; i < addrrecords; ++i) {
-				parse_record (host_buffer, r_size, "addrrecords", ns_s_ar, i, &m);
-			}
+			//			for (int i = 0; i < answers; ++i) {
+			//				parse_record (host_buffer, r_size, "answers", ns_s_an, i, &m);
+			//			}
+			//
+			//			for (int i = 0; i < nameservers; ++i) {
+			//				parse_record (host_buffer, r_size, "nameservers", ns_s_ns, i, &m);
+			//			}
+			//
+			//			for (int i = 0; i < addrrecords; ++i) {
+			//				parse_record (host_buffer, r_size, "addrrecords", ns_s_ar, i, &m);
+			//			}
 
 			char* IP_address = parse_record (host_buffer, r_size, "addrrecords", ns_s_ar, 2, &m);
 
@@ -483,6 +483,9 @@ int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE){
 			unsigned char digestBuffer[16];
 			char * my_str = strdup(line_data.c_str());
 			computeDigest(my_str, sizeof(line_data) , digestBuffer);
+
+			string message = "put " + user_name + "," + to_string(digestBuffer) + "," + line_data + "\r\n";
+			send_to_backend(message, user_name);
 
 			//	for(set<string>::iterator it = rcvr_list.begin(); it != rcvr_list.end();it++){
 			//		ofstream userfile;
