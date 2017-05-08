@@ -108,13 +108,14 @@ Response::Response(Request req) {
   }
 
   // view email
-  else if (req.path == VIEW_EMAIL_URL) {
+  else if (req.path.length() >= 10
+            && req.path.substr(0, 10) == VIEW_EMAIL_URL) {
     view_email(req);
   }
 
   // forward email
-  else if (req.path.length() >= 8 &&
-           req.path.substr(0, 8) == FORWARD_EMAIL_URL) {
+  else if (req.path.length() >= 8
+            && req.path.substr(0, 8) == FORWARD_EMAIL_URL) {
     forward_email(req);
   }
 
@@ -575,7 +576,13 @@ void Response::inbox(Request req) {
       // cout << address << '\n';
 
       maillist += "<tr>\n";
-      maillist += "<th scope=\" row \">" + to_string(count) + "</th>\n";
+      maillist += "<th scope=\" row \">";
+      maillist += "<a href=\"viewemail?";
+      maillist += "from=" + address;
+      maillist += "&title=" + rep.at(i + 3).substr(9, line.length() - 9);
+      maillist += "&date=" + rep.at(i + 2).substr(6, line.length() - 6);
+      maillist += "\">";
+      maillist += to_string(count) + "</a></th>\n";
       maillist += "<td>" + address + "</td>\n";
 
       // Subject
@@ -600,9 +607,18 @@ void Response::inbox(Request req) {
 
 /* view email */
 void Response::view_email(Request req) {
+  string path = req.path.substr(10);
+  vector<string> params = split(url_decode(path).c_str(), '&');
+  string from = split(params.at(0), '=').at(1);
+  string title = split(params.at(1), '=').at(1);
+  string date = split(params.at(2), '=').at(1);
+
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/view-email.html");
+  replace_all(this->body, "$from", from);
+  replace_all(this->body, "$title", title);
+  replace_all(this->body, "$date", date);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
