@@ -119,6 +119,12 @@ Response::Response(Request req) {
     forward_email(req);
   }
 
+  //logout
+  else if(req.path == LOGOUT_URL){
+    delete_session(user_name);
+    login(req);
+  }
+
   // otherwise login
   else {
     login(req);

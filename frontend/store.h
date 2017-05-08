@@ -17,6 +17,8 @@ bool is_login_valid(string username, string password);
 
 void add_session(string id);
 
+void delete_session(string id);
+
 bool is_session_valid(string id);
 
 #endif

@@ -15,6 +15,7 @@ const static char *OK = "200 OK";
 const static char *HOME_URL = "/";
 const static char *REGISTER_URL = "/register";
 const static char *LOGIN_URL = "/login";
+const static char *LOGOUT_URL = "/logout";
 const static char *STORAGE_URL = "/storage";
 const static char *EMAIL_URL = "/email";
 const static char *UPLOAD_URL = "/upload";

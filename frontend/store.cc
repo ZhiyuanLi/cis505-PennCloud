@@ -120,6 +120,10 @@ bool is_login_valid(string username, string password) {
 
 void add_session(string id) { sessions[id] = time(NULL); }
 
+void delete_session(string id){
+  sessions.erase(id);
+}
+
 bool is_session_valid(string id) {
   return sessions.count(id) == 1 ? true : false;
 }
