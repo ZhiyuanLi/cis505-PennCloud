@@ -120,7 +120,7 @@ Response::Response(Request req) {
   }
 
   //logout
-  else if(req.path == LOGOUT_URL){
+  else if (req.path == LOGOUT_URL) {
     delete_session(user_name);
     login(req);
   }
@@ -613,7 +613,7 @@ void Response::inbox(Request req) {
 
 /* view email */
 void Response::view_email(Request req) {
-  string path = req.path.substr(10);
+  string path = req.path.substr(11);
   vector<string> params = split(url_decode(path).c_str(), '&');
   string from = split(params.at(0), '=').at(1);
   string title = split(params.at(1), '=').at(1);
@@ -625,6 +625,15 @@ void Response::view_email(Request req) {
   replace_all(this->body, "$from", from);
   replace_all(this->body, "$title", title);
   replace_all(this->body, "$date", date);
+
+  // reply
+
+  // forward
+  string forward_query = "title=" + title;
+  replace_all(this->body, "$forwardQuery", forward_query);
+
+  // delete
+
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
@@ -648,8 +657,13 @@ void Response::send_to_email_server(string message) {
 
 /* forward email */
 void Response::forward_email(Request req) {
+  string path = req.path.substr(9);
+  vector<string> params = split(url_decode(path).c_str(), '&');
+  string title = "FW: " + split(params.at(0), '=').at(1);
+
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/forward-email.html");
+  replace_all(this->body, "$title", title);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
