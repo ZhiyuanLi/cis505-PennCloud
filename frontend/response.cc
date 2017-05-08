@@ -204,6 +204,9 @@ void Response::login(Request req) {
     if (is_login_valid(username, password)) {
       add_session(username);
       already_login = true;
+    }else{
+      this->body = get_file_content_as_string("html/login-failed.html");
+      (this->headers)[CONTENT_LEN] = to_string((this->body).length());
     }
   }
 
