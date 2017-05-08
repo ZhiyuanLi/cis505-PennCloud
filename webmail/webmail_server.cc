@@ -27,6 +27,7 @@
 #include <arpa/nameser.h>
 #include <resolv.h>
 #include "webmail_utils.h"
+#include "../frontend/store.h"
 using namespace std;
 
 int aflag = 0;
@@ -267,9 +268,3 @@ int main(int argc, char *argv[])
 	}
 	return 0;
 }
-
-
-
-
-
-

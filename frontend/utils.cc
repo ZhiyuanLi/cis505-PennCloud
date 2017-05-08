@@ -173,3 +173,21 @@ string get_current_time() {
   curr_time << put_time(localtime(&t), "%c %Z");
   return curr_time.str();
 }
+
+/* url decode */
+string url_decode(string &str) {
+    string ret;
+    char ch;
+    int i, ii;
+    for (i = 0; i < str.length(); i++) {
+        if (int(str[i]) == 37) {
+            sscanf(str.substr(i + 1, 2).c_str(), "%x", &ii);
+            ch = static_cast<char>(ii);
+            ret += ch;
+            i = i + 2;
+        } else {
+            ret += str[i];
+        }
+    }
+    return (ret);
+}

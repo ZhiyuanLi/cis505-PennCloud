@@ -15,7 +15,7 @@
 #include "request.h"
 #include "response.h"
 #include "store.h"
-#include "../webmail/server_header.h"
+#include "../webmail/webmail_utils.h"
 
 using namespace std;
 
@@ -208,6 +208,9 @@ void Response::login(Request req) {
     if (is_login_valid(username, password)) {
       add_session(username);
       already_login = true;
+    }else{
+      this->body = get_file_content_as_string("html/login-failed.html");
+      (this->headers)[CONTENT_LEN] = to_string((this->body).length());
     }
   }
 
@@ -510,11 +513,16 @@ void Response::send_email(Request req) {
 
 /* handle send email */
 void Response::handle_send_email(Request req) {
-  vector<string> params = split(req.body.c_str(), '&');
+  vector<string> params = split(url_decode(req.body).c_str(), '&');
   string sent_to = split(params.at(0), '=').at(1);
   string title = split(params.at(1), '=').at(1);
   string content = split(params.at(2), '=').at(1);
   string curr_time = get_current_time();
+
+  // decoding
+  // replace_all(sent_to, "%40", "@");
+  // replace_all(title, "+", " ");
+  // replace_all(content, "+", " ");
 
   string message;
   message += "Send\r\n";
@@ -523,7 +531,7 @@ void Response::handle_send_email(Request req) {
   message += "Date: " + curr_time + "\r\n";
   message += "Subject: " + title + "\r\n";
   message += content + "\r\n";
-  message ++ ".\r\n";
+  message += ".\r\n";
   send_to_email_server(message);
 
   this->status = OK;

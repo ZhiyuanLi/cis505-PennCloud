@@ -22,7 +22,7 @@
 
 
 #include "webmail_utils.h"
-#include "../store.h"
+#include "../frontend/store.h"
 
 int read_command(int fd, char *buf) {
 	// read from client, a char at each time
@@ -253,8 +253,8 @@ int handle_data(int comm_fd, char* buf, int rlen, std::set<std::string> rcvr_lis
 //		userfile<< "##"<<digestBuffer<<endl;
 //		userfile<<lines.str();
 //		userfile.close();
-		string message = "put " + *it + "," + to_string(digestBuffer) + "," + line_data + "\r\n";
-		send_to_backend(message, user_name);
+//		string message = "put " + *it + "," + string(digestBuffer) + "," + line_data + "\r\n";
+//		send_to_backend(message, user_name);
 
 	}
 
@@ -484,8 +484,8 @@ int handle_send(int comm_fd, char* buf, int rlen, int BUFFER_SIZE){
 			char * my_str = strdup(line_data.c_str());
 			computeDigest(my_str, sizeof(line_data) , digestBuffer);
 
-			string message = "put " + user_name + "," + to_string(digestBuffer) + "," + line_data + "\r\n";
-			send_to_backend(message, user_name);
+//			string message = "put " + user_name + "," + string(digestBuffer) + "," + line_data + "\r\n";
+//			send_to_backend(message, user_name);
 
 			//	for(set<string>::iterator it = rcvr_list.begin(); it != rcvr_list.end();it++){
 			//		ofstream userfile;
@@ -759,12 +759,3 @@ void freeBuffers(struct connection *conn)
 	free(conn->buf);
 	conn->buf = NULL;
 }
-
-
-
-
-
-
-
-
-
