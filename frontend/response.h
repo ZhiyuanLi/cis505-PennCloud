@@ -36,6 +36,7 @@ private:
   void send_email(Request req);
   void inbox(Request req);
   void view_email(Request req);
+  void handle_send_email(Request req);
 };
 
 #endif

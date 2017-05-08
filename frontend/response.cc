@@ -96,7 +96,11 @@ Response::Response(Request req) {
 
   // send email
   else if (req.path == SEND_EMAIL_URL) {
-    send_email(req);
+    if (req.method == "GET") {
+      send_email(req);
+    } else if (req.method == "POST") {
+      handle_send_email(req);
+    }
   }
 
   // inbox
@@ -153,9 +157,9 @@ void Response::reg(Request req) {
 
   // POST
   else if (req.method.compare("POST") == 0) {
-    vector<string> parameter_tokens = split(req.body.c_str(), '&');
-    string username = split(parameter_tokens.at(0), '=').at(1);
-    string password = split(parameter_tokens.at(1), '=').at(1);
+    vector<string> params = split(req.body.c_str(), '&');
+    string username = split(params.at(0), '=').at(1);
+    string password = split(params.at(1), '=').at(1);
 
     DIR* dir = opendir(username.c_str());
     if (dir)
@@ -197,9 +201,9 @@ void Response::login(Request req) {
 
   // POST
   else if (req.method.compare("POST") == 0) {
-    vector<string> parameter_tokens = split(req.body.c_str(), '&');
-    username = split(parameter_tokens.at(0), '=').at(1);
-    string password = split(parameter_tokens.at(1), '=').at(1);
+    vector<string> params = split(req.body.c_str(), '&');
+    username = split(params.at(0), '=').at(1);
+    string password = split(params.at(1), '=').at(1);
 
     if (is_login_valid(username, password)) {
       add_session(username);
@@ -504,6 +508,30 @@ void Response::send_email(Request req) {
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
+/* handle send email */
+void Response::handle_send_email(Request req) {
+  vector<string> params = split(req.body.c_str(), '&');
+  string sent_to = split(params.at(0), '=').at(1);
+  string title = split(params.at(1), '=').at(1);
+  string content = split(params.at(2), '=').at(1);
+  string curr_time = get_current_time();
+
+  string message;
+  message += "Send\r\n";
+  message += "From: <" + user_name + "@localhost.com>\r\n";
+  message += "To: <" + sent_to + ">\r\n";
+  message += "Date: " + curr_time + "\r\n";
+  message += "Subject: " + title + "\r\n";
+  message += content + "\r\n";
+  message ++ ".\r\n";
+  send_to_email_server(message);
+
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/send-email-success.html");
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
 /* inbox */
 void Response::inbox(Request req) {
   this->status = OK;
@@ -518,4 +546,20 @@ void Response::view_email(Request req) {
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/view-email.html");
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* send message to email server */
+void Response::send_to_email_server(string message) {
+  // Initialize the buffers
+  struct connection conn;
+  initializeBuffers(&conn, 5000);
+
+  // Open a connection and send messages
+  connectToPort(&conn, 2300);
+  writeString(&conn, message.c_str());
+
+  // Close the connection
+  writeString(&conn, "QUIT\r\n");
+  closeConnection(&conn);
+  freeBuffers(&conn);
 }
