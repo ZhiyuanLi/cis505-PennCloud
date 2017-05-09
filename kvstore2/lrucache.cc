@@ -220,14 +220,14 @@ bool LRUCache::put_helper(string user, string filename, string value, int comm_f
 
     print_memory_status(value.size(), comm_fd);
 
-    //check single user size
-    if (external || isCPUT) {
-        if (user_size[user] + value.size() >= capacity) {
-            const char* feedback = "-ERR Your storage exceeds node capacity\r\n";
-            servermsg(feedback, comm_fd);
-            return true;
-        }
-    }
+	//check single user size
+	if (external || isCPUT) {
+		if (user_size[user] + value.size() >= capacity) {
+	        const char* feedback = "-ERR Your storage exceeds node capacity\r\n";
+	        servermsg(feedback, comm_fd);
+	        return true;
+		}
+	}
 
     if (memory_used + value.size() <= capacity) {
 
@@ -263,7 +263,7 @@ bool LRUCache::put_helper(string user, string filename, string value, int comm_f
         memory_used += value.size();
 
         if (external || isCPUT) {
-            user_size[user] += value.size();
+        	user_size[user] += value.size();
         }
 
         if (external) {
@@ -351,7 +351,7 @@ void LRUCache::cput(string user, string filename, string old_value, string new_v
     string value_read;
     if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
         if (value_read.compare(old_value) == 0) {
-            user_size[user] -= old_value.size();
+        	user_size[user] -= old_value.size();
             memory_used -= old_value.size();
             put_helper(user, filename, new_value, comm_fd, true, true, seq_num);
         } else {
@@ -364,15 +364,17 @@ void LRUCache::cput(string user, string filename, string old_value, string new_v
 void LRUCache::dele(string user, string filename, int comm_fd, int seq_num) {
     string value_read;
     if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
-        user_size[user] -= tablets[user]->value[filename].size();
+    	user_size[user] -= tablets[user]->value[filename].size();
         memory_used -= tablets[user]->value[filename].size();
         tablets[user]->value.erase(filename);
         if (isPrimary) {
             const char* successmsg = "+OK File deleted\r\n";
             servermsg(successmsg, comm_fd);
         } else {
-            string report = "DONE " + user + "," + to_string(seq_num) + "\r\n";
-            send(comm_fd, report.c_str(), report.size(), 0);
+            if (seq_num != 0) {
+                string report = "DONE " + user + "," + to_string(seq_num) + "\r\n";
+                send(comm_fd, report.c_str(), report.size(), 0);
+            }          
         }
 
         // delete the node of empty user
@@ -383,54 +385,65 @@ void LRUCache::dele(string user, string filename, int comm_fd, int seq_num) {
 }
 
 void LRUCache::getlist(string user, string type, int comm_fd){
-    int counter = 0;
-    for (auto it: tablets[user]->value) {
-        string filename = it.first;     
-        if ((type.compare("email") == 0 && filename.substr(0,2).compare("##") == 0) ||
-            (type.compare("file") == 0 && filename.substr(0,2).compare("##") != 0)) {
-            string value_read;
-            if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
-                if (counter == 0) {
-                    const char* feedback = "+OK list as follows: \r\n";
-                    servermsg(feedback, comm_fd);
-                } 
-                string fn_value = filename + "," + value_read + ",";
-                send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
+    if (tablets.find(user) != tablets.end()) {
+        int counter = 0;
+        for (auto it: tablets[user]->value) {
+            string filename = it.first;     
+            if ((type.compare("email") == 0 && filename.substr(0,2).compare("##") == 0) ||
+                (type.compare("file") == 0 && filename.substr(0,2).compare("##") != 0)) {
+                string value_read;
+                if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
+                    if (counter == 0) {
+                        const char* feedback = "+OK list as follows: \r\n";
+                        servermsg(feedback, comm_fd);
+                    } 
+                    string fn_value = filename + "," + value_read + ",";
+                    send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
 
-                // If -v
-                if (opt_v) {
-                    print_time();
-                    fprintf(stderr, "[%d] S: %s", comm_fd, fn_value.c_str());
+                    // If -v
+                    if (opt_v) {
+                        print_time();
+                        fprintf(stderr, "[%d] S: %s", comm_fd, fn_value.c_str());
+                    }
                 }
             }
+            counter += 1; 
         }
-        counter += 1; 
-    }
+    } else {
+        const char* feedback = "-ERR User not exist\r\n";
+        servermsg(feedback, comm_fd);
+    }   
 }
 
-void LRUCache::getfile(string user, int comm_fd) {
-    int counter = 0;
-    for (auto it: tablets[user]->value) {
-        string filename = it.first;     
-        if (filename.substr(0,2).compare("##") != 0) {
-            string value_read;
-            if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
-                if (counter == 0) {
-                    const char* feedback = "+OK list as follows: \r\n";
-                    servermsg(feedback, comm_fd);
-                }
-                string fn_value = filename + ",";
-                send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
 
-                // If -v
-                if (opt_v) {
-                    print_time();
-                    fprintf(stderr, "[%d] S: %s\n", comm_fd, fn_value.c_str());
+void LRUCache::getfile(string user, int comm_fd) {
+    if (tablets.find(user) != tablets.end()) {
+        int counter = 0;
+        for (auto it: tablets[user]->value) {
+            string filename = it.first;     
+            if (filename.substr(0,2).compare("##") != 0) {
+                string value_read;
+                if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
+                    if (counter == 0) {
+                        const char* feedback = "+OK list as follows: \r\n";
+                        servermsg(feedback, comm_fd);
+                    }
+                    string fn_value = filename + ",";
+                    send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
+
+                    // If -v
+                    if (opt_v) {
+                        print_time();
+                        fprintf(stderr, "[%d] S: %s\n", comm_fd, fn_value.c_str());
+                    }
                 }
             }
+            counter += 1; 
         }
-        counter += 1; 
-    }
+    } else {
+        const char* feedback = "-ERR User not exist\r\n";
+        servermsg(feedback, comm_fd);
+    }   
 }
 
 void LRUCache::rename(string user, string old_filename, string new_filename, int comm_fd, int seq_num) {
