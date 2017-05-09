@@ -821,9 +821,6 @@ void Response::admin_console(Request req) {
 
   parse_frontend_servers("servers.txt");
 
-  frontend += "<tr>";
-  backend += "<tr>";
-
   for (int i = 1; i <= frontend_servers.size(); i++) {
 
     // if (server_list[server_index].servertype.compare("frontend") == 0) {
@@ -834,6 +831,7 @@ void Response::admin_console(Request req) {
     servaddr.sin_port = htons(frontend_servers[i].port);
     servaddr.sin_family = AF_INET;
 
+    frontend += "<tr>";
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
       pthread_mutex_lock(&mutex_lock);
       frontend_servers[i].running = true;
@@ -853,6 +851,8 @@ void Response::admin_console(Request req) {
       frontend += "<td class=\"danger\">" + to_string(i) + "</td>";
       frontend += "<td class=\"danger\">Down</td>";
     }
+
+    frontend += "</tr>";
     close(sockfd);
   }
 
@@ -887,6 +887,7 @@ void Response::admin_console(Request req) {
     servaddr.sin_port = htons(backend_servers[i].port);
     servaddr.sin_family = AF_INET;
 
+    backend += "<tr>";
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
       pthread_mutex_lock(&mutex_lock);
       backend_servers[i].running = true;
@@ -909,12 +910,9 @@ void Response::admin_console(Request req) {
       backend += "<td class=\"danger\">Terminate</td>";
     }
 
+    backend += "</tr>";
     close(sockfd);
   }
-
-
-frontend += "</tr>";
-backend += "</tr>";
 
 this->body = get_file_content_as_string("html/admin-console.html");
 replace_all(this->body, "$frontend", frontend);
