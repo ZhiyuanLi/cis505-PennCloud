@@ -11,12 +11,12 @@
 #include <vector>
 
 #include "../webmail/webmail_utils.h"
+#include "admin_console.h"
 #include "constants.h"
 #include "request.h"
 #include "response.h"
 #include "store.h"
 #include "utils.h"
-#include "admin_console.h"
 
 using namespace std;
 
@@ -607,14 +607,14 @@ void Response::inbox(Request req) {
       // maillist += "&title=" + rep.at(i + 3).substr(9);
       // maillist += "&date=" + rep.at(i + 2).substr(6);
 
-      //content for each mail
+      // content for each mail
       content.clear();
       int j = i + 4;
       while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
-        content += rep.at(j)+"\r\n";
+        content += rep.at(j) + "\r\n";
         j++;
       }
-      j = j+1;
+      j = j + 1;
 
       // maillist += "&content=" + content;
       maillist += "key=" + f_tokens.at(0).substr(2);
@@ -659,7 +659,6 @@ void Response::view_email(Request req) {
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/view-email.html");
 
-
   // send to KV store
   string message("get " + user_name + ",##" + key + "\r\n");
   vector<string> rep = send_to_backend(message, user_name);
@@ -670,11 +669,11 @@ void Response::view_email(Request req) {
   string date = rep.at(i + 2).substr(6);
   string title = rep.at(i + 3).substr(9);
 
-  //content for each mail
+  // content for each mail
   string content;
   int j = i + 4;
   while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
-    content += rep.at(j)+"\r\n";
+    content += rep.at(j) + "\r\n";
     j++;
   }
 
@@ -730,16 +729,17 @@ void Response::forward_email(Request req) {
   string date = rep.at(i + 2).substr(6);
   string title = rep.at(i + 3).substr(9);
 
-  //content for each mail
+  // content for each mail
   string content;
   int j = i + 4;
   while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
-    content += rep.at(j)+"\r\n";
+    content += rep.at(j) + "\r\n";
     j++;
   }
 
   string title2 = "FW: " + title;
-  string content2 = "\n==========\n||From: "+email+"\n"+"||Date: "+date+"\n\n"+content;
+  string content2 = "\n==========\n||From: " + email + "\n" + "||Date: " +
+                    date + "\n\n" + content;
 
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
@@ -771,16 +771,17 @@ void Response::reply_email(Request req) {
   string date = rep.at(i + 2).substr(6);
   string title = rep.at(i + 3).substr(9);
 
-  //content for each mail
+  // content for each mail
   string content;
   int j = i + 4;
   while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
-    content += rep.at(j)+"\r\n";
+    content += rep.at(j) + "\r\n";
     j++;
   }
 
   string title2 = "RE: " + title;
-  string content2 = "\n==========\n||From: "+email+"\n"+"||Date: "+date+"\n\n"+content;
+  string content2 = "\n==========\n||From: " + email + "\n" + "||Date: " +
+                    date + "\n\n" + content;
 
   replace_all(this->body, "$email", email);
   replace_all(this->body, "$title", title2);
@@ -817,82 +818,105 @@ void Response::admin_console(Request req) {
   string backend;
   int server_index = 0;
 
-  server_list[0].Num_of_Servers = parse_frontend_servers("servers.txt");
+  parse_frontend_servers("servers.txt");
 
   frontend += "<tr>";
   backend += "<tr>";
 
-  for (int i = 1; i <= server_list[server_index].Num_of_Servers; i++) {
+  for (int i = 1; i <= frontend_servers.size(); i++) {
 
-    if (server_list[server_index].servertype.compare("frontend") == 0) {
+    // if (server_list[server_index].servertype.compare("frontend") == 0) {
 
-      int sockfd = socket(PF_INET, SOCK_STREAM, 0);
-      struct sockaddr_in servaddr;
-      inet_aton(frontend_servers[i].ip.c_str(), &(servaddr.sin_addr));
-      servaddr.sin_port = htons(frontend_servers[i].port);
-      servaddr.sin_family = AF_INET;
+    int sockfd = socket(PF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in servaddr;
+    inet_aton(frontend_servers[i].ip.c_str(), &(servaddr.sin_addr));
+    servaddr.sin_port = htons(frontend_servers[i].port);
+    servaddr.sin_family = AF_INET;
 
-      if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) ==
-          0) {
-        pthread_mutex_lock(&mutex_lock);
-        frontend_servers[i].running = true;
-        pthread_mutex_unlock(&mutex_lock);
+    if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
+      pthread_mutex_lock(&mutex_lock);
+      frontend_servers[i].running = true;
+      pthread_mutex_unlock(&mutex_lock);
 
-        cout << "frontend_server #" << i << " is active" << endl;
+      cout << "frontend_server #" << i << " is active" << endl;
 
-        frontend += "<td class=\"success\">" + to_string(i) + "</td>";
-        frontend += "<td class=\"success\">Active</td>";
-      } else {
-        pthread_mutex_lock(&mutex_lock);
-        frontend_servers[i].running = false;
-        pthread_mutex_unlock(&mutex_lock);
+      frontend += "<td class=\"success\">" + to_string(i) + "</td>";
+      frontend += "<td class=\"success\">Active</td>";
+    } else {
+      pthread_mutex_lock(&mutex_lock);
+      frontend_servers[i].running = false;
+      pthread_mutex_unlock(&mutex_lock);
 
-        cout << "frontend_server #" << i << " is down" << endl;
+      cout << "frontend_server #" << i << " is down" << endl;
 
-        frontend += "<td class=\"danger\">" + to_string(i) + "</td>";
-        frontend += "<td class=\"danger\">Down</td>";
-      }
-      close(sockfd);
-    } else if (server_list[server_index].servertype.compare("backend") == 0) {
-
-      int sockfd = socket(PF_INET, SOCK_STREAM, 0);
-      struct sockaddr_in servaddr;
-      inet_aton(backend_servers[i].ip.c_str(), &(servaddr.sin_addr));
-      servaddr.sin_port = htons(backend_servers[i].port);
-      servaddr.sin_family = AF_INET;
-
-      if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) ==
-          0) {
-        pthread_mutex_lock(&mutex_lock);
-        backend_servers[i].running = true;
-        pthread_mutex_unlock(&mutex_lock);
-
-        cout << "backend_server #" << i << " is active" << endl;
-
-        backend += "<td class=\"success\">" + to_string(i) + "</td>";
-        backend += "<td class=\"success\">Active</td>";
-        backend += "<td class=\"success\">Terminate</td>";
-      } else {
-        pthread_mutex_lock(&mutex_lock);
-        backend_servers[i].running = false;
-        pthread_mutex_unlock(&mutex_lock);
-
-        cout << "backend_server #" << i << " is down" << endl;
-
-        backend += "<td class=\"danger\">" + to_string(i) + "</td>";
-        backend += "<td class=\"danger\">Down</td>";
-        backend += "<td class=\"danger\">Terminate</td>";
-      }
-
-      close(sockfd);
+      frontend += "<td class=\"danger\">" + to_string(i) + "</td>";
+      frontend += "<td class=\"danger\">Down</td>";
     }
+    close(sockfd);
   }
 
-  frontend += "</tr>";
-  backend += "</tr>";
+  int udp_fd = socket(PF_INET, SOCK_DGRAM, 0);
+  struct sockaddr_in dest;
+  bzero(&dest, sizeof(dest));
+  dest.sin_family = AF_INET;
+  dest.sin_port = htons(MASTER_PORT);
+  inet_pton(AF_INET, MASTER_IP, &(dest.sin_addr));
 
-  this->body = get_file_content_as_string("html/admin-console.html");
-  replace_all(this->body, "$frontend", frontend);
-  replace_all(this->body, "$backend", backend);
-  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+  //	ask master for backend's ip:port
+  string contact_master = "A";
+  sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0,
+         (struct sockaddr *)&dest, sizeof(dest));
+  cout << "To master: " << contact_master << endl;
+
+  struct sockaddr_in src;
+  socklen_t srcSize = sizeof(src);
+  char feedback[1024];
+  int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0,
+                      (struct sockaddr *)&src, &srcSize);
+  feedback[rlen] = 0;
+  cout << "From master: " << feedback << endl;
+
+  parse_backend_servers(feedback);
+
+  for (int i = 1; i <= backend_servers.size(); i++) {
+
+    int sockfd = socket(PF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in servaddr;
+    inet_aton(backend_servers[i].ip.c_str(), &(servaddr.sin_addr));
+    servaddr.sin_port = htons(backend_servers[i].port);
+    servaddr.sin_family = AF_INET;
+
+    if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
+      pthread_mutex_lock(&mutex_lock);
+      backend_servers[i].running = true;
+      pthread_mutex_unlock(&mutex_lock);
+
+      cout << "backend_server #" << i << " is active" << endl;
+
+      backend += "<td class=\"success\">" + to_string(i) + "</td>";
+      backend += "<td class=\"success\">Active</td>";
+      backend += "<td class=\"success\">Terminate</td>";
+    } else {
+      pthread_mutex_lock(&mutex_lock);
+      backend_servers[i].running = false;
+      pthread_mutex_unlock(&mutex_lock);
+
+      cout << "backend_server #" << i << " is down" << endl;
+
+      backend += "<td class=\"danger\">" + to_string(i) + "</td>";
+      backend += "<td class=\"danger\">Down</td>";
+      backend += "<td class=\"danger\">Terminate</td>";
+    }
+
+    close(sockfd);
+  }
+
+
+frontend += "</tr>";
+backend += "</tr>";
+
+this->body = get_file_content_as_string("html/admin-console.html");
+replace_all(this->body, "$frontend", frontend);
+replace_all(this->body, "$backend", backend);
+(this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }

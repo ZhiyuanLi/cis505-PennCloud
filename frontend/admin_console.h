@@ -53,6 +53,7 @@ int parse_frontend_servers(const char *filename) {
   // read file line by line
   while (getline(ifs, line)) {
     // get IP address and port number
+		cout<<line<<endl;
     size_t colon = line.find(":");
     if (colon == string::npos) {
       fprintf(stderr, "Wrong IP address and port number format\n");
