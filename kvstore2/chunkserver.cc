@@ -307,7 +307,7 @@ void Chunkserver::replay_log() {
 			} else if(command.compare("cput") == 0) {
 				cput(record, false, -1, 0); 
 			} else if(command.compare("dele") == 0) {
-				dele(record, false, -1, 0);                 				
+				dele(record, false, false, -1, 0);                 				
 			} else {
 				if (opt_v) {
 					print_time();
