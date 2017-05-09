@@ -1,33 +1,33 @@
+#include <arpa/inet.h>
+#include <dirent.h>
+#include <fstream>
 #include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
-#include <vector>
-#include <fstream>
-#include <arpa/inet.h>
 #include <sys/stat.h>
-#include <dirent.h>
 #include <sys/types.h>
+#include <vector>
 
+#include "../webmail/webmail_utils.h"
 #include "constants.h"
-#include "utils.h"
 #include "request.h"
 #include "response.h"
 #include "store.h"
-#include "../webmail/webmail_utils.h"
+#include "utils.h"
 
 using namespace std;
 
 // username
 string user_name;
-static char* curr_user;
+static char *curr_user;
 
 Response::Response(Request req) {
   this->http_version = req.http_version;
   (this->headers)[CONNECTION] = "close";
 
-  const char* filename = ("." + req.path).c_str();
+  const char *filename = ("." + req.path).c_str();
 
   // static file
   if (req.path != HOME_URL && is_file_exist(filename)) {
@@ -59,8 +59,7 @@ Response::Response(Request req) {
   }
 
   // download file
-  else if (req.path.length() >= 10
-          && req.path.substr(0, 10) == "/download?") {
+  else if (req.path.length() >= 10 && req.path.substr(0, 10) == "/download?") {
     download_file(req);
   }
 
@@ -109,20 +108,39 @@ Response::Response(Request req) {
   }
 
   // view email
-  else if (req.path == VIEW_EMAIL_URL) {
+  else if (req.path.length() >= 10 &&
+           req.path.substr(0, 10) == VIEW_EMAIL_URL) {
     view_email(req);
   }
 
   // forward email
-  else if (req.path.length() >= 8 && req.path.substr(0, 8) == FORWARD_EMAIL_URL) {
+  else if (req.path.length() >= 8 &&
+           req.path.substr(0, 8) == FORWARD_EMAIL_URL) {
     forward_email(req);
+  }
+
+  // reply email
+  else if (req.path.length() >= 11 &&
+           req.path.substr(0, 11) == REPLY_EMAIL_URL) {
+    reply_email(req);
+  }
+
+  // delete email
+  else if (req.path.length() >= 12 &&
+           req.path.substr(0, 12) == DELETE_EMAIL_URL) {
+    delete_email(req);
+  }
+
+  // logout
+  else if (req.path == LOGOUT_URL) {
+    delete_session(user_name);
+    login(req);
   }
 
   // otherwise login
   else {
     login(req);
   }
-
 }
 
 void Response::reply(int fd) {
@@ -166,18 +184,14 @@ void Response::reg(Request req) {
     string username = split(params.at(0), '=').at(1);
     string password = split(params.at(1), '=').at(1);
 
-    DIR* dir = opendir(username.c_str());
-    if (dir)
-    {
-        /* Directory exists. */
-        closedir(dir);
+    DIR *dir = opendir(username.c_str());
+    if (dir) {
+      /* Directory exists. */
+      closedir(dir);
+    } else if (ENOENT == errno) {
+      /* Directory does not exist. */
+      mkdir(username.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     }
-    else if (ENOENT == errno)
-    {
-        /* Directory does not exist. */
-        mkdir(username.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-    }
-    curr_user = (char*) (username + "/").c_str();
 
     if (is_user_exist(username)) {
       this->body = get_file_content_as_string("html/user-already-exist.html");
@@ -213,7 +227,7 @@ void Response::login(Request req) {
     if (is_login_valid(username, password)) {
       add_session(username);
       already_login = true;
-    }else{
+    } else {
       this->body = get_file_content_as_string("html/login-failed.html");
       (this->headers)[CONTENT_LEN] = to_string((this->body).length());
     }
@@ -232,6 +246,7 @@ bool Response::is_already_login(map<string, string> cookies, string &username) {
   if (cookies.count("sessionid") == 1) {
     if (is_session_valid(cookies["sessionid"])) {
       username = cookies["sessionid"];
+      curr_user = (char *)(username + "/").c_str();
       return true;
     }
   }
@@ -260,7 +275,8 @@ void Response::handle_upload(Request req) {
   store_file(dir, filename, file_content);
 
   // send to KV store
-  string message("put " + user_name + "," + filename + "," + file_content + "\r\n");
+  string message("put " + user_name + "," + filename + "," + file_content +
+                 "\r\n");
   send_to_backend(message, user_name);
 
   this->body = get_file_content_as_string("html/upload.html");
@@ -338,19 +354,18 @@ void Response::download(Request req) {
     replace_all(this->body, "$allFolders", all_folders);
     (this->headers)[CONTENT_LEN] = to_string((this->body).length());
   }
-
 }
 
 /* display file content */
-void Response::file(const char* filename) {
-    debug(1, "[file exists]: ");
-    debug(1, filename);
-    debug(1, "\r\n");
-    string file_content(get_file_content_as_string(filename));
-    this->status = OK;
-    (this->headers)[CONTENT_TYPE] = "text/plain";
-    this->body = file_content;
-    (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+void Response::file(const char *filename) {
+  debug(1, "[file exists]: ");
+  debug(1, filename);
+  debug(1, "\r\n");
+  string file_content(get_file_content_as_string(filename));
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/plain";
+  this->body = file_content;
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
 /* create new folder */
@@ -363,10 +378,12 @@ void Response::create_new_folder(Request req) {
   store_file(dir, foldername, "empty");
 
   // send to KV store
-  string message("put " + user_name + "," + foldername + "," + "empty" + "\r\n");
-  send_to_backend(message, user_name);
+  // string message("put " + user_name + "," + foldername + "," + "empty" +
+  //                "\r\n");
+  // send_to_backend(message, user_name);
 
-  this->body = get_file_content_as_string("html/create-new-folder-success.html");
+  this->body =
+      get_file_content_as_string("html/create-new-folder-success.html");
   replace_all(this->body, "$foldername", foldername);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
@@ -386,7 +403,7 @@ void Response::rename_file(Request req) {
 
   string dir(curr_user);
   rename((dir + foldername + oldname).c_str(),
-          (dir + foldername + newname).c_str());
+         (dir + foldername + newname).c_str());
   this->body = get_file_content_as_string("html/rename-file-success.html");
   replace_all(this->body, "$oldname", oldname);
   replace_all(this->body, "$newname", newname);
@@ -428,8 +445,8 @@ void Response::delete_folder(Request req) {
   for (vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
     string file_path(dir + *it);
     if (foldername.length() > 0) {
-      if (*it == (foldername + ".folder")
-          || (*it).find(foldername + "+") != string::npos) {
+      if (*it == (foldername + ".folder") ||
+          (*it).find(foldername + "+") != string::npos) {
         remove(file_path.c_str());
 
         // send to KV store
@@ -462,10 +479,10 @@ void Response::move_file(Request req) {
   string dir(curr_user);
   if (oldfolder.length() > 0) {
     rename((dir + oldfolder + "+" + filename).c_str(),
-          (dir + newfolder + "+" + filename).c_str());
+           (dir + newfolder + "+" + filename).c_str());
   } else {
     rename((dir + filename).c_str(),
-          (dir + newfolder + "+" + filename).c_str());
+           (dir + newfolder + "+" + filename).c_str());
   }
 
   this->body = get_file_content_as_string("html/move-file-success.html");
@@ -482,8 +499,8 @@ void Response::download_file(Request req) {
   (this->headers)[CONTENT_LEN] = to_string(filesize);
 
   // check content type
-  if (file_path.find("jpeg") != string::npos
-      || file_path.find("jpg") != string::npos) {
+  if (file_path.find("jpeg") != string::npos ||
+      file_path.find("jpg") != string::npos) {
     (this->headers)[CONTENT_TYPE] = "image/jpeg";
   } else if (file_path.find("png") != string::npos) {
     (this->headers)[CONTENT_TYPE] = "image/png";
@@ -494,7 +511,7 @@ void Response::download_file(Request req) {
   }
 
   // get file content
-  char* buf = (char*) malloc(sizeof(char) * filesize);
+  char *buf = (char *)malloc(sizeof(char) * filesize);
   fstream file(file_path.c_str(), ios::in | ios::out | ios::binary);
   this->body = "";
   for (int i = 0; i < filesize; i++) {
@@ -550,14 +567,126 @@ void Response::inbox(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/inbox.html");
+  // send to KV store
+  string message("getlist " + user_name + ",email" + "\r\n");
+  vector<string> rep = send_to_backend(message, user_name);
+
+  int count = 0;
+  string maillist;
+  debug(1, "Email List:\n");
+  string content;
+  for (int i = 0; i < rep.size(); i++) {
+
+    string line = rep.at(i);
+
+    // if (line.length() <= 16) {
+    //   continue;
+    // }
+    if (line.at(0) == ',') {
+      line = line.substr(1, line.length() - 1);
+    }
+    if (line.substr(0, 2).compare("##") == 0) { // get one new email
+      count++;
+      // FROM
+      // cout << "FROM   " << line << endl;
+      vector<string> f_tokens = split(line.c_str(), ',');
+      string address = f_tokens.at(1).substr(7, f_tokens.at(1).length() - 8);
+
+      // cout << address << '\n';
+
+      maillist += "<tr>\n";
+      maillist += "<th scope=\" row \">";
+      maillist += "<a href=\"viewemail?";
+      // maillist += "from=" + address;
+      // maillist += "&title=" + rep.at(i + 3).substr(9);
+      // maillist += "&date=" + rep.at(i + 2).substr(6);
+
+      //content for each mail
+      content.clear();
+      int j = i + 4;
+      while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
+        content += rep.at(j)+"\r\n";
+        j++;
+      }
+      j = j+1;
+
+      // maillist += "&content=" + content;
+      maillist += "key=" + f_tokens.at(0).substr(2);
+
+      // cout<<content<<'\n';
+
+      maillist += "\">";
+      maillist += to_string(count) + "</a></th>\n";
+      maillist += "<td>" + address + "</td>\n";
+
+      // Subject
+      line = rep.at(i + 3);
+      // cout << "Subject   " << line << endl;
+      maillist += "<td>" + line.substr(9) + "</td>\n";
+
+      // Date
+      line = rep.at(i + 2);
+      // cout << "Date   " << line << endl;
+      maillist += "<td>" + line.substr(6) + "</td>\n";
+
+      maillist += "</tr>\n";
+      i = j;
+    }
+  }
+
+  debug(1, "============End of Email List:\n");
+  replace_all(this->body, "$maillist", maillist);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
 /* view email */
 void Response::view_email(Request req) {
+  string path = req.path.substr(11);
+  // vector<string> params = split(url_decode(path).c_str(), '&');
+  // string from = split(params.at(0), '=').at(1);
+  // string title = split(params.at(1), '=').at(1);
+  // string date = split(params.at(2), '=').at(1);
+  // string content = split(params.at(3), '=').at(1);
+  string key = split(path, '=').at(1);
+
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/view-email.html");
+
+
+  // send to KV store
+  string message("get " + user_name + ",##" + key + "\r\n");
+  vector<string> rep = send_to_backend(message, user_name);
+
+  int i = 1;
+
+  string from = rep.at(i).substr(7, rep.at(i).length() - 8);
+  string date = rep.at(i + 2).substr(6);
+  string title = rep.at(i + 3).substr(9);
+
+  //content for each mail
+  string content;
+  int j = i + 4;
+  while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
+    content += rep.at(j)+"\r\n";
+    j++;
+  }
+
+  replace_all(this->body, "$from", from);
+  replace_all(this->body, "$title", title);
+  replace_all(this->body, "$date", date);
+  replace_all(this->body, "$content", content);
+
+  string query = "key=" + key;
+  // reply
+  replace_all(this->body, "$replyQuery", query);
+
+  // forward
+  replace_all(this->body, "$forwardQuery", query);
+
+  // delete
+  replace_all(this->body, "$deleteQuery", query);
+
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
@@ -581,8 +710,90 @@ void Response::send_to_email_server(string message) {
 
 /* forward email */
 void Response::forward_email(Request req) {
+  string path = req.path.substr(9);
+  // vector<string> params = split(url_decode(path).c_str(), '&');
+  string key = split(path, '=').at(1);
+
+  // send to KV store
+  string message("get " + user_name + ",##" + key + "\r\n");
+  vector<string> rep = send_to_backend(message, user_name);
+
+  int i = 1;
+
+  string email = rep.at(i).substr(7, rep.at(i).length() - 8);
+  string date = rep.at(i + 2).substr(6);
+  string title = rep.at(i + 3).substr(9);
+
+  //content for each mail
+  string content;
+  int j = i + 4;
+  while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
+    content += rep.at(j)+"\r\n";
+    j++;
+  }
+
+  string title2 = "FW: " + title;
+  string content2 = "\n==========\n||From: "+email+"\n"+"||Date: "+date+"\n\n"+content;
+
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/forward-email.html");
+  replace_all(this->body, "$title", title2);
+  replace_all(this->body, "$content", content2);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* reply email */
+void Response::reply_email(Request req) {
+  string path = req.path.substr(12);
+  string key = split(path, '=').at(1);
+  // vector<string> params = split(url_decode(path).c_str(), '&');
+  // string email = split(params.at(0), '=').at(1);
+  // string title = "RE: " + split(params.at(1), '=').at(1);
+  // string content = "==========\n\n" + split(params.at(2), '=').at(1);
+
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/reply-email.html");
+  // send to KV store
+  string message("get " + user_name + ",##" + key + "\r\n");
+  vector<string> rep = send_to_backend(message, user_name);
+
+  int i = 1;
+
+  string email = rep.at(i).substr(7, rep.at(i).length() - 8);
+  string date = rep.at(i + 2).substr(6);
+  string title = rep.at(i + 3).substr(9);
+
+  //content for each mail
+  string content;
+  int j = i + 4;
+  while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
+    content += rep.at(j)+"\r\n";
+    j++;
+  }
+
+  string title2 = "RE: " + title;
+  string content2 = "\n==========\n||From: "+email+"\n"+"||Date: "+date+"\n\n"+content;
+
+  replace_all(this->body, "$email", email);
+  replace_all(this->body, "$title", title2);
+  replace_all(this->body, "$content", content2);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* delete email */
+void Response::delete_email(Request req) {
+  string path = req.path.substr(13);
+  vector<string> params = split(url_decode(path).c_str(), '&');
+  string key = split(params.at(0), '=').at(1);
+
+  // send to KV store
+  string message("dele " + user_name + ",##" + key + "\r\n");
+  send_to_backend(message, user_name);
+
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/delete-email.html");
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }

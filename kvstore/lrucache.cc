@@ -58,7 +58,7 @@ void LRUCache::servermsg(const char* msg, int comm_fd) {
 void LRUCache::print_memory_status(int value_size, int comm_fd) {
 
     string memory_status = "Memory used: " + to_string(memory_used) + " Value size: " + to_string(value_size) + " Capacity: " + to_string(capacity);
-    
+
     if (opt_v) {
         print_time();
         fprintf(stderr, "[%d] S: %s\n", comm_fd, memory_status.c_str());
@@ -80,7 +80,7 @@ void LRUCache::clear_metadata(string type, string user) {
 
     if (type.compare("checkpointing") == 0) {
         cp_meta.erase(user);
-    } 
+    }
 }
 
 void LRUCache::update_metadata(string type, string user, string str, int size) {
@@ -97,12 +97,12 @@ void LRUCache::update_metadata(string type, string user, string str, int size) {
 
     if (type.compare("checkpointing") == 0) {
         cp_meta[user].push_back(record);
-    } 
+    }
 
     chunk_info[type].at(1) += size;
 }
 
-int LRUCache::format_node(Node *user_node, string &row) {   
+int LRUCache::format_node(Node *user_node, string &row) {
     int value_size = 0;
     for (map<string, string>::iterator it = user_node->value.begin(); it != user_node->value.end(); ++it) {
         string line = it->first + "," + it->second + ","; // value should be binary here, easy to parse with comma when read back to memory
@@ -113,7 +113,7 @@ int LRUCache::format_node(Node *user_node, string &row) {
 }
 
 void LRUCache::write_to_chunk(string user, string row, string type) { //options for type: virtual memory / checkpointing
-    
+
     // clear the existent meta first
     clear_metadata(type, user);
 
@@ -144,7 +144,7 @@ void LRUCache::write_to_chunk(string user, string row, string type) { //options 
     }
 }
 
-void LRUCache::use_virtual_memory() { 
+void LRUCache::use_virtual_memory() {
     Node *lru_user = head->next;
     string row = "";
     int size = format_node(lru_user, row);
@@ -189,7 +189,7 @@ void LRUCache::load_user_from_disk(string type, string user, int comm_fd) {
     if (type.compare("checkpointing") == 0) {
         user_meta = cp_meta[user];
     }
-     
+
     string fn_value;
     for (int i = 0; i < user_meta.size(); i++) {
         vector<int> temp = user_meta.at(i);
@@ -203,7 +203,7 @@ void LRUCache::load_user_from_disk(string type, string user, int comm_fd) {
         if (type.compare("checkpointing") == 0) {
             path = "checkpointing/chunk" + to_string(chunk_id);
         }
-        
+
         ifstream file(path);
         string s;
         if(file.is_open()) {
@@ -274,11 +274,11 @@ bool LRUCache::put_helper(string user, string filename, string value, int comm_f
                 } else {
                     const char* feedback = "+OK Value stored\r\n";
                     servermsg(feedback, comm_fd);
-                } 
+                }
             } else {
                 string report = "DONE " + user + "," + to_string(seq_num) + "\r\n";
-                send(comm_fd, report.c_str(), report.size(), 0); 
-            }                      
+                send(comm_fd, report.c_str(), report.size(), 0);
+            }
         }
         return true;
     }
@@ -385,7 +385,7 @@ void LRUCache::dele(string user, string filename, int comm_fd, int seq_num) {
 void LRUCache::getlist(string user, string type, int comm_fd){
     int counter = 0;
     for (auto it: tablets[user]->value) {
-        string filename = it.first;     
+        string filename = it.first;
         if ((type.compare("email") == 0 && filename.substr(0,2).compare("##") == 0) ||
             (type.compare("file") == 0 && filename.substr(0,2).compare("##") != 0)) {
             string value_read;
@@ -404,14 +404,14 @@ void LRUCache::getlist(string user, string type, int comm_fd){
                 }
             }
         }
-        counter += 1; 
+        counter += 1;
     }
 }
 
 void LRUCache::getfile(string user, int comm_fd) {
     int counter = 0;
     for (auto it: tablets[user]->value) {
-        string filename = it.first;     
+        string filename = it.first;
         if (filename.substr(0,2).compare("##") != 0) {
             string value_read;
             if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
@@ -429,17 +429,17 @@ void LRUCache::getfile(string user, int comm_fd) {
                 }
             }
         }
-        counter += 1; 
+        counter += 1;
     }
 }
 
 void LRUCache::rename(string user, string old_filename, string new_filename, int comm_fd, int seq_num) {
     string value_read;
     if (get_helper(user, old_filename, value_read, comm_fd)) { // get will update the user's position in the linked list
-        
+
         tablets[user]->value.erase(old_filename);
         tablets[user]->value[new_filename] = value_read;
-        
+
         if (isPrimary) {
             const char* successmsg = "+OK File renamed\r\n";
             servermsg(successmsg, comm_fd);

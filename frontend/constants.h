@@ -15,6 +15,7 @@ const static char *OK = "200 OK";
 const static char *HOME_URL = "/";
 const static char *REGISTER_URL = "/register";
 const static char *LOGIN_URL = "/login";
+const static char *LOGOUT_URL = "/logout";
 const static char *STORAGE_URL = "/storage";
 const static char *EMAIL_URL = "/email";
 const static char *UPLOAD_URL = "/upload";
@@ -28,6 +29,8 @@ const static char *SEND_EMAIL_URL = "/sendemail";
 const static char *INBOX_URL = "/inbox";
 const static char *VIEW_EMAIL_URL = "/viewemail";
 const static char *FORWARD_EMAIL_URL = "/forward";
+const static char *REPLY_EMAIL_URL = "/replyemail";
+const static char *DELETE_EMAIL_URL = "/deleteemail";
 
 using namespace std;
 
