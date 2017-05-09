@@ -22,7 +22,7 @@ using namespace std;
 
 // username
 string user_name;
-static char *curr_user;
+char* curr_user;
 
 Response::Response(Request req) {
   this->http_version = req.http_version;
@@ -198,6 +198,7 @@ void Response::reg(Request req) {
       /* Directory does not exist. */
       mkdir(username.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     }
+    curr_user = (char *)(username + "/").c_str();
 
     if (is_user_exist(username)) {
       this->body = get_file_content_as_string("html/user-already-exist.html");
@@ -252,7 +253,7 @@ bool Response::is_already_login(map<string, string> cookies, string &username) {
   if (cookies.count("sessionid") == 1) {
     if (is_session_valid(cookies["sessionid"])) {
       username = cookies["sessionid"];
-      curr_user = (char *)(username + "/").c_str();
+      // curr_user = (char *)(username + "/").c_str();
       return true;
     }
   }
@@ -381,7 +382,7 @@ void Response::create_new_folder(Request req) {
   string foldername = req.body.substr(req.body.find('=') + 1);
   string dir(curr_user);
   foldername += ".folder";
-  store_file(dir, foldername, "empty");
+  store_file(dir, foldername, "");
 
   // send to KV store
   // string message("put " + user_name + "," + foldername + "," + "empty" +
