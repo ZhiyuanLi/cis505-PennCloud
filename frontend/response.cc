@@ -22,7 +22,7 @@ using namespace std;
 
 // username
 string user_name;
-char* curr_user;
+char *curr_user;
 
 Response::Response(Request req) {
   this->http_version = req.http_version;
@@ -832,7 +832,8 @@ void Response::admin_console(Request req) {
     servaddr.sin_family = AF_INET;
 
     frontend += "<tr>";
-    string frontend_ip = frontend_servers[i].ip + ":" + to_string(frontend_servers[i].port);
+    string frontend_ip =
+        frontend_servers[i].ip + ":" + to_string(frontend_servers[i].port);
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
       pthread_mutex_lock(&mutex_lock);
       frontend_servers[i].running = true;
@@ -889,7 +890,8 @@ void Response::admin_console(Request req) {
     servaddr.sin_family = AF_INET;
 
     backend += "<tr>";
-    string backend_ip = backend_servers[i].ip + ":" + to_string(backend_servers[i].port);
+    string backend_ip =
+        backend_servers[i].ip + ":" + to_string(backend_servers[i].port);
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
       pthread_mutex_lock(&mutex_lock);
       backend_servers[i].running = true;
@@ -899,6 +901,42 @@ void Response::admin_console(Request req) {
 
       backend += "<td class=\"success\">" + backend_ip + "</td>";
       backend += "<td class=\"success\">Active</td>";
+      string contact_master = "U" + backend_servers[i].ip + ":" +
+                              to_string(backend_servers[i].port);
+      sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0,
+             (struct sockaddr *)&dest, sizeof(dest));
+      cout << "asking master username of node " << contact_master << endl;
+
+      struct sockaddr_in src;
+      socklen_t srcSize = sizeof(src);
+      char feedback[5000];
+      int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0,
+                          (struct sockaddr *)&src, &srcSize);
+
+      feedback[rlen] = 0;
+      cout << "user name list in this node: " << feedback << endl;
+
+      string f(feedback);
+
+      vector<string> tokens = split(f.c_str(), ',');
+      for (auto name : tokens) {
+        if (name.empty())
+          continue;
+        string message = "getlist " + name + ",email\r\n";
+        cout << name << " emails:" << endl;
+        vector<string> email_rep = send_to_backend(message, name);
+        for (auto s : email_rep) {
+          cout << s << endl;
+        }
+
+        message = "getfile " + name + "\r\n";
+        cout << name << " files:" << endl;
+        vector<string> file_rep = send_to_backend(message, name);
+        for (auto s : file_rep) {
+          cout << s << endl;
+        }
+      }
+
     } else {
       pthread_mutex_lock(&mutex_lock);
       backend_servers[i].running = false;
@@ -914,8 +952,8 @@ void Response::admin_console(Request req) {
     close(sockfd);
   }
 
-this->body = get_file_content_as_string("html/admin-console.html");
-replace_all(this->body, "$frontend", frontend);
-replace_all(this->body, "$backend", backend);
-(this->headers)[CONTENT_LEN] = to_string((this->body).length());
+  this->body = get_file_content_as_string("html/admin-console.html");
+  replace_all(this->body, "$frontend", frontend);
+  replace_all(this->body, "$backend", backend);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }

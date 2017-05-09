@@ -76,7 +76,11 @@ vector<string> send_to_backend(string message, string username) {
         line = read_rep_line(sockfd);
       }
     } else if (message.substr(0, 7).compare("getfile") == 0) {
-
+      while (line.compare("!!!DONE!!!") != 0) {
+        debug(1, "%d:[%s]\n", line.length(), line.c_str());
+        rep.push_back(line);
+        line = read_rep_line(sockfd);
+      }
     } else {
       while (line.compare("!!!DONE!!!") != 0) {
         debug(1, "%d:[%s]\n", line.length(), line.c_str());

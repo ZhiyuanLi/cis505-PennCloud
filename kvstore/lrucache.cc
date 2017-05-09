@@ -393,7 +393,7 @@ void LRUCache::getlist(string user, string type, int comm_fd){
                 if (counter == 0) {
                     const char* feedback = "+OK list as follows: \r\n";
                     servermsg(feedback, comm_fd);
-                } 
+                }
                 string fn_value = filename + "," + value_read + ",";
                 send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
 
@@ -419,7 +419,7 @@ void LRUCache::getfile(string user, int comm_fd) {
                     const char* feedback = "+OK list as follows: \r\n";
                     servermsg(feedback, comm_fd);
                 }
-                string fn_value = filename + ",";
+                string fn_value = filename + "\r\n";
                 send(comm_fd, fn_value.c_str(), fn_value.size(), 0);
 
                 // If -v
