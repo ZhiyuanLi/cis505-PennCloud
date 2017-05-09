@@ -125,6 +125,12 @@ Response::Response(Request req) {
     reply_email(req);
   }
 
+  // delete email
+  else if (req.path.length() >= 12 &&
+           req.path.substr(0, 12) == DELETE_EMAIL_URL) {
+    delete_email(req);
+  }
+
   // logout
   else if (req.path == LOGOUT_URL) {
     delete_session(user_name);
@@ -605,6 +611,7 @@ void Response::inbox(Request req) {
       j = j+1;
 
       maillist += "&content=" + content;
+      maillist += "&key=" + f_tokens.at(0);
 
       // cout<<content<<'\n';
 
@@ -640,6 +647,7 @@ void Response::view_email(Request req) {
   string title = split(params.at(1), '=').at(1);
   string date = split(params.at(2), '=').at(1);
   string content = split(params.at(3), '=').at(1);
+  string key = split(params.at(4), '=').at(1);
 
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
@@ -658,6 +666,8 @@ void Response::view_email(Request req) {
   replace_all(this->body, "$forwardQuery", forward_query);
 
   // delete
+  string delete_query = "key=" + key;
+  replace_all(this->body, "$deleteQuery", delete_query);
 
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
@@ -709,5 +719,21 @@ void Response::reply_email(Request req) {
   replace_all(this->body, "$email", email);
   replace_all(this->body, "$title", title);
   replace_all(this->body, "$content", content);
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/* delete email */
+void Response::delete_email(Request req) {
+  string path = req.path.substr(13);
+  vector<string> params = split(url_decode(path).c_str(), '&');
+  string key = split(params.at(0), '=').at(1);
+
+  // send to KV store
+  string message("dele " + user_name + "," + key + "\r\n");
+  send_to_backend(message, user_name);
+
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/delete-email.html");
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }

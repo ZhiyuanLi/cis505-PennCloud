@@ -40,6 +40,7 @@ private:
   void send_to_email_server(string message);
   void forward_email(Request req);
   void reply_email(Request req);
+  void delete_email(Request req);
 };
 
 #endif

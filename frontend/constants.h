@@ -30,6 +30,7 @@ const static char *INBOX_URL = "/inbox";
 const static char *VIEW_EMAIL_URL = "/viewemail";
 const static char *FORWARD_EMAIL_URL = "/forward";
 const static char *REPLY_EMAIL_URL = "/replyemail";
+const static char *DELETE_EMAIL_URL = "/deleteemail";
 
 using namespace std;
 
