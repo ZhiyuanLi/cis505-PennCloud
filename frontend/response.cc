@@ -108,24 +108,24 @@ Response::Response(Request req) {
   }
 
   // view email
-  else if (req.path.length() >= 10
-            && req.path.substr(0, 10) == VIEW_EMAIL_URL) {
+  else if (req.path.length() >= 10 &&
+           req.path.substr(0, 10) == VIEW_EMAIL_URL) {
     view_email(req);
   }
 
   // forward email
-  else if (req.path.length() >= 8
-            && req.path.substr(0, 8) == FORWARD_EMAIL_URL) {
+  else if (req.path.length() >= 8 &&
+           req.path.substr(0, 8) == FORWARD_EMAIL_URL) {
     forward_email(req);
   }
 
   // reply email
-  else if (req.path.length() >= 11
-            && req.path.substr(0, 11) == REPLY_EMAIL_URL) {
+  else if (req.path.length() >= 11 &&
+           req.path.substr(0, 11) == REPLY_EMAIL_URL) {
     reply_email(req);
   }
 
-  //logout
+  // logout
   else if (req.path == LOGOUT_URL) {
     delete_session(user_name);
     login(req);
@@ -568,13 +568,14 @@ void Response::inbox(Request req) {
   int count = 0;
   string maillist;
   debug(1, "Email List:\n");
+  string content;
   for (int i = 0; i < rep.size(); i++) {
 
     string line = rep.at(i);
 
-    if (line.length() <= 16) {
-      continue;
-    }
+    // if (line.length() <= 16) {
+    //   continue;
+    // }
     if (line.at(0) == ',') {
       line = line.substr(1, line.length() - 1);
     }
@@ -593,6 +594,18 @@ void Response::inbox(Request req) {
       maillist += "from=" + address;
       maillist += "&title=" + rep.at(i + 3).substr(9, line.length() - 9);
       maillist += "&date=" + rep.at(i + 2).substr(6, line.length() - 6);
+
+      //content for each mail
+      content.clear();
+      int j = i + 4;
+      while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
+        content += rep.at(j)+"\r\n";
+        j++;
+      }
+      j = j+1;
+
+      // cout<<content<<'\n';
+
       maillist += "\">";
       maillist += to_string(count) + "</a></th>\n";
       maillist += "<td>" + address + "</td>\n";
@@ -608,7 +621,7 @@ void Response::inbox(Request req) {
       maillist += "<td>" + line.substr(6, line.length() - 6) + "</td>\n";
 
       maillist += "</tr>\n";
-      i = i + 6;
+      i = j;
     }
   }
 
