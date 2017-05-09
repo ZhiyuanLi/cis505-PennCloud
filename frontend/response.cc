@@ -16,6 +16,7 @@
 #include "response.h"
 #include "store.h"
 #include "utils.h"
+#include "admin_console.h"
 
 using namespace std;
 
@@ -811,6 +812,87 @@ void Response::delete_email(Request req) {
 void Response::admin_console(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
+
+  string frontend;
+  string backend;
+  int server_index = 0;
+
+  server_list[0].Num_of_Servers = parse_frontend_servers("servers.txt");
+
+  frontend += "<tr>";
+  backend += "<tr>";
+
+  for (int i = 1; i <= server_list[server_index].Num_of_Servers; i++) {
+
+    if (server_list[server_index].servertype.compare("frontend") == 0) {
+
+      int sockfd = socket(PF_INET, SOCK_STREAM, 0);
+      struct sockaddr_in servaddr;
+      inet_aton(frontend_servers[i].ip.c_str(), &(servaddr.sin_addr));
+      servaddr.sin_port = htons(frontend_servers[i].port);
+      servaddr.sin_family = AF_INET;
+
+      if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) ==
+          0) {
+        pthread_mutex_lock(&mutex_lock);
+        frontend_servers[i].running = true;
+        pthread_mutex_unlock(&mutex_lock);
+
+        cout << "frontend_server #" << i << " is active" << endl;
+
+        frontend += "<td class=\"success\">" + to_string(i) + "</td>";
+        frontend += "<td class=\"success\">Active</td>";
+      } else {
+        pthread_mutex_lock(&mutex_lock);
+        frontend_servers[i].running = false;
+        pthread_mutex_unlock(&mutex_lock);
+
+        cout << "frontend_server #" << i << " is down" << endl;
+
+        frontend += "<td class=\"danger\">" + to_string(i) + "</td>";
+        frontend += "<td class=\"danger\">Down</td>";
+      }
+      close(sockfd);
+    } else if (server_list[server_index].servertype.compare("backend") == 0) {
+
+      int sockfd = socket(PF_INET, SOCK_STREAM, 0);
+      struct sockaddr_in servaddr;
+      inet_aton(backend_servers[i].ip.c_str(), &(servaddr.sin_addr));
+      servaddr.sin_port = htons(backend_servers[i].port);
+      servaddr.sin_family = AF_INET;
+
+      if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) ==
+          0) {
+        pthread_mutex_lock(&mutex_lock);
+        backend_servers[i].running = true;
+        pthread_mutex_unlock(&mutex_lock);
+
+        cout << "backend_server #" << i << " is active" << endl;
+
+        backend += "<td class=\"success\">" + to_string(i) + "</td>";
+        backend += "<td class=\"success\">Active</td>";
+        backend += "<td class=\"success\">Terminate</td>";
+      } else {
+        pthread_mutex_lock(&mutex_lock);
+        backend_servers[i].running = false;
+        pthread_mutex_unlock(&mutex_lock);
+
+        cout << "backend_server #" << i << " is down" << endl;
+
+        backend += "<td class=\"danger\">" + to_string(i) + "</td>";
+        backend += "<td class=\"danger\">Down</td>";
+        backend += "<td class=\"danger\">Terminate</td>";
+      }
+
+      close(sockfd);
+    }
+  }
+
+  frontend += "</tr>";
+  backend += "</tr>";
+
   this->body = get_file_content_as_string("html/admin-console.html");
+  replace_all(this->body, "$frontend", frontend);
+  replace_all(this->body, "$backend", backend);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
