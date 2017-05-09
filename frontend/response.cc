@@ -598,8 +598,8 @@ void Response::inbox(Request req) {
       maillist += "<th scope=\" row \">";
       maillist += "<a href=\"viewemail?";
       maillist += "from=" + address;
-      maillist += "&title=" + rep.at(i + 3).substr(9, line.length() - 9);
-      maillist += "&date=" + rep.at(i + 2).substr(6, line.length() - 6);
+      maillist += "&title=" + rep.at(i + 3).substr(9);
+      maillist += "&date=" + rep.at(i + 2).substr(6);
 
       //content for each mail
       content.clear();
@@ -611,7 +611,7 @@ void Response::inbox(Request req) {
       j = j+1;
 
       maillist += "&content=" + content;
-      maillist += "&key=" + f_tokens.at(0);
+      maillist += "&key=" + f_tokens.at(0).substr(2);
 
       // cout<<content<<'\n';
 
@@ -622,12 +622,12 @@ void Response::inbox(Request req) {
       // Subject
       line = rep.at(i + 3);
       // cout << "Subject   " << line << endl;
-      maillist += "<td>" + line.substr(9, line.length() - 9) + "</td>\n";
+      maillist += "<td>" + line.substr(9) + "</td>\n";
 
       // Date
       line = rep.at(i + 2);
       // cout << "Date   " << line << endl;
-      maillist += "<td>" + line.substr(6, line.length() - 6) + "</td>\n";
+      maillist += "<td>" + line.substr(6) + "</td>\n";
 
       maillist += "</tr>\n";
       i = j;
@@ -729,7 +729,7 @@ void Response::delete_email(Request req) {
   string key = split(params.at(0), '=').at(1);
 
   // send to KV store
-  string message("dele " + user_name + "," + key + "\r\n");
+  string message("dele " + user_name + ",##" + key + "\r\n");
   send_to_backend(message, user_name);
 
   this->status = OK;
