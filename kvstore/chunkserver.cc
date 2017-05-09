@@ -43,9 +43,9 @@ extern int secondary_fd;
 extern bool opt_v;
 
 
-Chunkserver::Chunkserver(int capacity) {                     //TODO: locking for multi-threaded read and write								 
-	this->capacity = capacity;                         
-	this->lru = new LRUCache(MEMORY_CAPACITY);               
+Chunkserver::Chunkserver(int capacity) {
+	this->capacity = capacity;
+	this->lru = new LRUCache(MEMORY_CAPACITY);
 }
 
 /* Sends the ERROR message to the client. */
@@ -61,8 +61,7 @@ void Chunkserver::error(int comm_fd) {
 }
 
 void Chunkserver::parse_line(string s, vector<string> &arguments, int num_of_args) {
-    string delimiter = ",";  //TODO: what if there are "," in v1 when CPUT r,c,v1,v2 ? maybe use binary for v1
-    int counter = 0;
+    string delimiter = ",";
 
     size_t pos = 0;
     while ((pos = s.find(delimiter)) != string::npos && counter != num_of_args - 1) {
@@ -80,8 +79,8 @@ void Chunkserver::write_cp_meta() {
 		string user = "@" + it.first + ";";
 		meta += user;
 		for (int i = 0; i < temp.size(); i++) {
-			string s = to_string(temp.at(i).at(0)) + "," 
-			         + to_string(temp.at(i).at(1)) + "," 
+			string s = to_string(temp.at(i).at(0)) + ","
+			         + to_string(temp.at(i).at(1)) + ","
 			         + to_string(temp.at(i).at(2)) + ";";
 			meta += s;
 		}
@@ -96,8 +95,8 @@ void Chunkserver::write_virmem_meta() {
 		string user = "@" + it.first + ";";
 		meta += user;
 		for (int i = 0; i < temp.size(); i++) {
-			string s = to_string(temp.at(i).at(0)) + "," 
-			         + to_string(temp.at(i).at(1)) + "," 
+			string s = to_string(temp.at(i).at(0)) + ","
+			         + to_string(temp.at(i).at(1)) + ","
 			         + to_string(temp.at(i).at(2)) + ";";
 			meta += s;
 		}
@@ -106,9 +105,9 @@ void Chunkserver::write_virmem_meta() {
 }
 
 void Chunkserver::write_chunk_info() {
-	string meta = to_string(chunk_info["checkpointing"].at(0)) + "," 
+	string meta = to_string(chunk_info["checkpointing"].at(0)) + ","
 	            + to_string(chunk_info["checkpointing"].at(1)) + ","
-				+ to_string(chunk_info["virtual memory"].at(0)) + "," 
+				+ to_string(chunk_info["virtual memory"].at(0)) + ","
 				+ to_string(chunk_info["virtual memory"].at(1)) + ","
 				+ to_string(lru->memory_used);
 	write_file("metadata/chunk_info", meta);
@@ -118,14 +117,14 @@ void Chunkserver::write_user_size() {
 	string meta = "";
 	for (auto it: lru->user_size) {
 		string s = it.first + "," + to_string(lru->user_size[it.first]) + ",";
-		meta += s;	
+		meta += s;
     }
     write_file("metadata/user_size", meta);
 }
 
 vector<int> Chunkserver::rebuild_vector(string s) {
 	vector<int> v;
-	string delimiter = ",";  
+	string delimiter = ",";
 
     size_t pos = 0;
     string user;
@@ -138,7 +137,7 @@ vector<int> Chunkserver::rebuild_vector(string s) {
 }
 
 void Chunkserver::parse_meta(string s, string type) {
-	string delimiter = ";";  
+	string delimiter = ";";
     int counter = 0;
 
     size_t pos = 0;
@@ -155,7 +154,7 @@ void Chunkserver::parse_meta(string s, string type) {
 
 		    if (type.compare("checkpointing") == 0) {
 		        cp_meta[user].push_back(record);
-		    } 
+		    }
     	}
         s.erase(0, pos + delimiter.length());
         counter ++;
@@ -164,23 +163,23 @@ void Chunkserver::parse_meta(string s, string type) {
 
 void Chunkserver::load_cp_vm_meta(string path, string type) {
 	string s = read_file(path);
-	string delimiter = "@";  
+	string delimiter = "@";
     int counter = 0;
 
     size_t pos = 0;
     while ((pos = s.find(delimiter)) != string::npos) {
     	if (counter != 0) {
-    		parse_meta(s.substr(0, pos), type); 
+    		parse_meta(s.substr(0, pos), type);
     	}
         s.erase(0, pos + delimiter.length());
         counter ++;
     }
-    parse_meta(s, type); 
+    parse_meta(s, type);
 }
 
 void Chunkserver::load_chunk_info() {
 	string s = read_file("metadata/chunk_info");
-	string delimiter = ","; 
+	string delimiter = ",";
     int counter = 0;
 
     size_t pos = 0;
@@ -188,11 +187,11 @@ void Chunkserver::load_chunk_info() {
     	if (counter == 0 || counter == 1) {
     		chunk_info["checkpointing"].push_back(stoi(s.substr(0, pos)));
     	}
-        
+
         if (counter == 2 || counter == 3) {
     		chunk_info["virtual memory"].push_back(stoi(s.substr(0, pos)));
     	}
-    	
+
         s.erase(0, pos + delimiter.length());
         counter ++;
     }
@@ -200,7 +199,7 @@ void Chunkserver::load_chunk_info() {
 
 void Chunkserver::load_user_size() {
 	string s = read_file("metadata/user_size");
-	string delimiter = ","; 
+	string delimiter = ",";
     int counter = 0;
 
     size_t pos = 0;
@@ -220,7 +219,7 @@ void Chunkserver::load_user_size() {
 void Chunkserver::checkpointing() {
 
 	// empty previous checkpointing and log
-	clear_dir("checkpointing/virtual memory/");	
+	clear_dir("checkpointing/virtual memory/");
 	clear_dir("checkpointing/");
 	clear_dir("metadata/");
 	string log("log");
@@ -270,16 +269,16 @@ void Chunkserver::load_checkpointing() {
 
     // maintain consistency between virtual memory and its cp metadata
     clear_dir("virtual memory/");
-    copy_dir("checkpointing/virtual memory/", "virtual memory/");  
+    copy_dir("checkpointing/virtual memory/", "virtual memory/");
 }
 
-void Chunkserver::write_log(char* request) { //TODO: force write
+void Chunkserver::write_log(char* request) { 
 	string dest = "log";
 	ofstream ofs;
 	ofs.open(dest, ofstream::out | ofstream::app); // append
 	ofs << request;
 	ofs.close();
-} 
+}
 
 void Chunkserver::replay_log() {
 	string line;
@@ -293,8 +292,8 @@ void Chunkserver::replay_log() {
 			record[line.size() + 1] = '\0';
 
 			// parse command
-			string command; 
-			string delimiter = " "; 
+			string command;
+			string delimiter = " ";
 		    size_t pos = 0;
 		    while ((pos = line.find(delimiter)) != string::npos) {
 		        command = line.substr(0, pos);
@@ -303,11 +302,11 @@ void Chunkserver::replay_log() {
 
 			// execute command
 			if(command.compare("put") == 0) {
-				put(record, false, -1, 0);                         // comm_fd = -1 here and below			
+				put(record, false, -1, 0);                         // comm_fd = -1 here and below
 			} else if(command.compare("cput") == 0) {
-				cput(record, false, -1, 0); 
+				cput(record, false, -1, 0);
 			} else if(command.compare("dele") == 0) {
-				dele(record, false, false, -1, 0);                 				
+				dele(record, false, false, -1, 0);
 			} else {
 				if (opt_v) {
 					print_time();
@@ -317,7 +316,7 @@ void Chunkserver::replay_log() {
 			delete [] record;
 		}
 		myfile.close();
-	} 
+	}
 }
 
 void Chunkserver::send_to_secondary(char* line, string user) {
@@ -332,7 +331,7 @@ void Chunkserver::send_to_secondary(char* line, string user) {
 	string temp(line);
 	string msg_to_s = to_string(sequence) + "," + temp;
 	send(secondary_fd, msg_to_s.c_str(), msg_to_s.size(), 0);
-	
+
 }
 
 /* PUT r,c,v */
@@ -352,13 +351,13 @@ void Chunkserver::put(char* &line, bool external, int comm_fd, int seq_num) {
 		string filename = rcv.at(1);
 		string value = rcv.at(2);
 		lru->put(user, filename, value, comm_fd, true, seq_num);
-	
+
 		if (external) {
 			write_log(line);
 			if (isPrimary) {
 				send_to_secondary(line, user);
 			}
-		}	
+		}
 	} else {
 		error(comm_fd);
 	}
@@ -472,7 +471,7 @@ void Chunkserver::getfile(char *line, int comm_fd) {
 		lru->getfile(user, comm_fd);
 	} else {
 		error(comm_fd);
-	}	
+	}
 }
 
 /* RENAME r,c1,c2 */
@@ -499,7 +498,7 @@ void Chunkserver::rename(char* &line, bool external, int comm_fd, int seq_num) {
 			if (isPrimary) {
 				send_to_secondary(line, user);
 			}
-		}	
+		}
 	} else {
 		error(comm_fd);
 	}
@@ -508,9 +507,9 @@ void Chunkserver::rename(char* &line, bool external, int comm_fd, int seq_num) {
 
 void Chunkserver::migrate_data(string user, int comm_fd) {    // assume user exists
 
-	// send data to data migration requester	
+	// send data to data migration requester
 	for (auto it: lru->tablets[user]->value) {
-        string filename = it.first;     
+        string filename = it.first;
         string value_read;
         if (lru->get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
             string feedback = "put " + user + "," + filename + "," + value_read;
@@ -525,15 +524,15 @@ void Chunkserver::migrate_data(string user, int comm_fd) {    // assume user exi
     }
 
     // delete the file on primary and inform secondary to do so too
-    for (auto it: lru->tablets[user]->value) {  
-        string filename = it.first;     
+    for (auto it: lru->tablets[user]->value) {
+        string filename = it.first;
         string value_read;
         if (lru->get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
             string temp = "dele " + user + "," + filename + "\r\n";
         	char *sync_secondary = new char[temp.size() + 1];
         	strcpy(sync_secondary, temp.c_str());
         	sync_secondary[temp.size()] = '\0';
-        	dele(sync_secondary, true, true, comm_fd, 0); 
+        	dele(sync_secondary, true, true, comm_fd, 0);
 
             // If -v
             if (opt_v) {
