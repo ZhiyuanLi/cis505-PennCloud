@@ -604,6 +604,8 @@ void Response::inbox(Request req) {
       }
       j = j+1;
 
+      maillist += "&content=" + content;
+
       // cout<<content<<'\n';
 
       maillist += "\">";
@@ -637,6 +639,7 @@ void Response::view_email(Request req) {
   string from = split(params.at(0), '=').at(1);
   string title = split(params.at(1), '=').at(1);
   string date = split(params.at(2), '=').at(1);
+  string content = split(params.at(3), '=').at(1);
 
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
@@ -644,13 +647,14 @@ void Response::view_email(Request req) {
   replace_all(this->body, "$from", from);
   replace_all(this->body, "$title", title);
   replace_all(this->body, "$date", date);
+  replace_all(this->body, "$content", content);
 
   // reply
-  string reply_query = "email=" + from + "&title=" + title;
+  string reply_query = "email=" + from + "&title=" + title + "&content=" + content;
   replace_all(this->body, "$replyQuery", reply_query);
 
   // forward
-  string forward_query = "title=" + title;
+  string forward_query = "title=" + title + "&content=" + content;
   replace_all(this->body, "$forwardQuery", forward_query);
 
   // delete
@@ -681,11 +685,13 @@ void Response::forward_email(Request req) {
   string path = req.path.substr(9);
   vector<string> params = split(url_decode(path).c_str(), '&');
   string title = "FW: " + split(params.at(0), '=').at(1);
+  string content = "\n==========\n\n" + split(params.at(1), '=').at(1);
 
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/forward-email.html");
   replace_all(this->body, "$title", title);
+  replace_all(this->body, "$content", content);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
@@ -695,11 +701,13 @@ void Response::reply_email(Request req) {
   vector<string> params = split(url_decode(path).c_str(), '&');
   string email = split(params.at(0), '=').at(1);
   string title = "RE: " + split(params.at(1), '=').at(1);
+  string content = "==========\n\n" + split(params.at(2), '=').at(1);
 
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/reply-email.html");
   replace_all(this->body, "$email", email);
   replace_all(this->body, "$title", title);
+  replace_all(this->body, "$content", content);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
