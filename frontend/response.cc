@@ -924,17 +924,27 @@ void Response::admin_console(Request req) {
           continue;
         string message = "getlist " + name + ",email\r\n";
         cout << name << " emails:" << endl;
+        backend += "<tr><td>";
+        backend += name + " emails:</td>";
         vector<string> email_rep = send_to_backend(message, name);
         for (auto s : email_rep) {
+          backend += "<td>";
           cout << s << endl;
+          backend += s + "</td>";
         }
+        backend += "</tr>";
 
         message = "getfile " + name + "\r\n";
         cout << name << " files:" << endl;
+        backend += "<tr><td>";
+        backend += name + " files and pwd:</td>";
         vector<string> file_rep = send_to_backend(message, name);
         for (auto s : file_rep) {
+          backend += "<td>";
           cout << s << endl;
+          backend += s + "</td>";
         }
+        backend += "</tr>";
       }
 
     } else {
