@@ -832,6 +832,7 @@ void Response::admin_console(Request req) {
     servaddr.sin_family = AF_INET;
 
     frontend += "<tr>";
+    string frontend_ip = frontend_servers[i].ip + ":" + to_string(frontend_servers[i].port);
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
       pthread_mutex_lock(&mutex_lock);
       frontend_servers[i].running = true;
@@ -839,7 +840,7 @@ void Response::admin_console(Request req) {
 
       cout << "frontend_server #" << i << " is active" << endl;
 
-      frontend += "<td class=\"success\">" + to_string(i) + "</td>";
+      frontend += "<td class=\"success\">" + frontend_ip + "</td>";
       frontend += "<td class=\"success\">Active</td>";
     } else {
       pthread_mutex_lock(&mutex_lock);
@@ -848,7 +849,7 @@ void Response::admin_console(Request req) {
 
       cout << "frontend_server #" << i << " is down" << endl;
 
-      frontend += "<td class=\"danger\">" + to_string(i) + "</td>";
+      frontend += "<td class=\"danger\">" + frontend_ip + "</td>";
       frontend += "<td class=\"danger\">Down</td>";
     }
 
@@ -888,6 +889,7 @@ void Response::admin_console(Request req) {
     servaddr.sin_family = AF_INET;
 
     backend += "<tr>";
+    string backend_ip = backend_servers[i].ip + ":" + to_string(backend_servers[i].port);
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == 0) {
       pthread_mutex_lock(&mutex_lock);
       backend_servers[i].running = true;
@@ -895,9 +897,8 @@ void Response::admin_console(Request req) {
 
       cout << "backend_server #" << i << " is active" << endl;
 
-      backend += "<td class=\"success\">" + to_string(i) + "</td>";
+      backend += "<td class=\"success\">" + backend_ip + "</td>";
       backend += "<td class=\"success\">Active</td>";
-      backend += "<td class=\"success\">Terminate</td>";
     } else {
       pthread_mutex_lock(&mutex_lock);
       backend_servers[i].running = false;
@@ -905,9 +906,8 @@ void Response::admin_console(Request req) {
 
       cout << "backend_server #" << i << " is down" << endl;
 
-      backend += "<td class=\"danger\">" + to_string(i) + "</td>";
+      backend += "<td class=\"danger\">" + backend_ip + "</td>";
       backend += "<td class=\"danger\">Down</td>";
-      backend += "<td class=\"danger\">Terminate</td>";
     }
 
     backend += "</tr>";
