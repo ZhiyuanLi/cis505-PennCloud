@@ -34,6 +34,11 @@ Response::Response(Request req) {
     file(filename);
   }
 
+  // admin console
+  else if (req.path == ADMIN_URL) {
+    admin_console(req);
+  }
+
   // register
   else if (req.path == REGISTER_URL) {
     reg(req);
@@ -795,5 +800,17 @@ void Response::delete_email(Request req) {
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/delete-email.html");
+  (this->headers)[CONTENT_LEN] = to_string((this->body).length());
+}
+
+/*****************
+ * admin console *
+ *****************/
+
+/* admin console */
+void Response::admin_console(Request req) {
+  this->status = OK;
+  (this->headers)[CONTENT_TYPE] = "text/html";
+  this->body = get_file_content_as_string("html/admin-console.html");
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }

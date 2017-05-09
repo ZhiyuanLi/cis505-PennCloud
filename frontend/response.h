@@ -41,6 +41,7 @@ private:
   void forward_email(Request req);
   void reply_email(Request req);
   void delete_email(Request req);
+  void admin_console(Request req);
 };
 
 #endif
