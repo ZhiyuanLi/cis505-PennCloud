@@ -187,7 +187,8 @@ int main(int argc, char *argv[])
           << to_string(handler_server_id) << endl;
 
           string content = get_file_content_as_string("html/redirect-this-server.html");
-          replace_all(content, "$serverId", to_string(handler_server_id));
+          string server = servers[handler_server_id].ip+":"+to_string(servers[handler_server_id].port);
+          replace_all(content, "$server", server);
           string response = header + to_string(content.length()) + "\r\n\r\n";
           response += content;
           write(fd, response.c_str(), response.length());
