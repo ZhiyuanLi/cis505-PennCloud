@@ -597,9 +597,9 @@ void Response::inbox(Request req) {
       maillist += "<tr>\n";
       maillist += "<th scope=\" row \">";
       maillist += "<a href=\"viewemail?";
-      maillist += "from=" + address;
-      maillist += "&title=" + rep.at(i + 3).substr(9);
-      maillist += "&date=" + rep.at(i + 2).substr(6);
+      // maillist += "from=" + address;
+      // maillist += "&title=" + rep.at(i + 3).substr(9);
+      // maillist += "&date=" + rep.at(i + 2).substr(6);
 
       //content for each mail
       content.clear();
@@ -610,8 +610,8 @@ void Response::inbox(Request req) {
       }
       j = j+1;
 
-      maillist += "&content=" + content;
-      maillist += "&key=" + f_tokens.at(0).substr(2);
+      // maillist += "&content=" + content;
+      maillist += "key=" + f_tokens.at(0).substr(2);
 
       // cout<<content<<'\n';
 
@@ -642,32 +642,50 @@ void Response::inbox(Request req) {
 /* view email */
 void Response::view_email(Request req) {
   string path = req.path.substr(11);
-  vector<string> params = split(url_decode(path).c_str(), '&');
-  string from = split(params.at(0), '=').at(1);
-  string title = split(params.at(1), '=').at(1);
-  string date = split(params.at(2), '=').at(1);
-  string content = split(params.at(3), '=').at(1);
-  string key = split(params.at(4), '=').at(1);
+  // vector<string> params = split(url_decode(path).c_str(), '&');
+  // string from = split(params.at(0), '=').at(1);
+  // string title = split(params.at(1), '=').at(1);
+  // string date = split(params.at(2), '=').at(1);
+  // string content = split(params.at(3), '=').at(1);
+  string key = split(path, '=').at(1);
 
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/view-email.html");
+
+
+  // send to KV store
+  string message("get " + user_name + ",##" + key + "\r\n");
+  vector<string> rep = send_to_backend(message, user_name);
+
+  int i = 1;
+
+  string from = rep.at(i).substr(7, rep.at(i).length() - 8);
+  string date = rep.at(i + 2).substr(6);
+  string title = rep.at(i + 3).substr(9);
+
+  //content for each mail
+  string content;
+  int j = i + 4;
+  while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
+    content += rep.at(j)+"\r\n";
+    j++;
+  }
+
   replace_all(this->body, "$from", from);
   replace_all(this->body, "$title", title);
   replace_all(this->body, "$date", date);
   replace_all(this->body, "$content", content);
 
+  string query = "key=" + key;
   // reply
-  string reply_query = "email=" + from + "&title=" + title + "&content=" + content;
-  replace_all(this->body, "$replyQuery", reply_query);
+  replace_all(this->body, "$replyQuery", query);
 
   // forward
-  string forward_query = "title=" + title + "&content=" + content;
-  replace_all(this->body, "$forwardQuery", forward_query);
+  replace_all(this->body, "$forwardQuery", query);
 
   // delete
-  string delete_query = "key=" + key;
-  replace_all(this->body, "$deleteQuery", delete_query);
+  replace_all(this->body, "$deleteQuery", query);
 
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
@@ -693,32 +711,74 @@ void Response::send_to_email_server(string message) {
 /* forward email */
 void Response::forward_email(Request req) {
   string path = req.path.substr(9);
-  vector<string> params = split(url_decode(path).c_str(), '&');
-  string title = "FW: " + split(params.at(0), '=').at(1);
-  string content = "\n==========\n\n" + split(params.at(1), '=').at(1);
+  // vector<string> params = split(url_decode(path).c_str(), '&');
+  string key = split(path, '=').at(1);
+
+  // send to KV store
+  string message("get " + user_name + ",##" + key + "\r\n");
+  vector<string> rep = send_to_backend(message, user_name);
+
+  int i = 1;
+
+  string email = rep.at(i).substr(7, rep.at(i).length() - 8);
+  string date = rep.at(i + 2).substr(6);
+  string title = rep.at(i + 3).substr(9);
+
+  //content for each mail
+  string content;
+  int j = i + 4;
+  while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
+    content += rep.at(j)+"\r\n";
+    j++;
+  }
+
+  string title2 = "FW: " + title;
+  string content2 = "\n==========\n||From: "+email+"\n"+"||Date: "+date+"\n\n"+content;
 
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/forward-email.html");
-  replace_all(this->body, "$title", title);
-  replace_all(this->body, "$content", content);
+  replace_all(this->body, "$title", title2);
+  replace_all(this->body, "$content", content2);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
 /* reply email */
 void Response::reply_email(Request req) {
   string path = req.path.substr(12);
-  vector<string> params = split(url_decode(path).c_str(), '&');
-  string email = split(params.at(0), '=').at(1);
-  string title = "RE: " + split(params.at(1), '=').at(1);
-  string content = "==========\n\n" + split(params.at(2), '=').at(1);
+  string key = split(path, '=').at(1);
+  // vector<string> params = split(url_decode(path).c_str(), '&');
+  // string email = split(params.at(0), '=').at(1);
+  // string title = "RE: " + split(params.at(1), '=').at(1);
+  // string content = "==========\n\n" + split(params.at(2), '=').at(1);
 
   this->status = OK;
   (this->headers)[CONTENT_TYPE] = "text/html";
   this->body = get_file_content_as_string("html/reply-email.html");
+  // send to KV store
+  string message("get " + user_name + ",##" + key + "\r\n");
+  vector<string> rep = send_to_backend(message, user_name);
+
+  int i = 1;
+
+  string email = rep.at(i).substr(7, rep.at(i).length() - 8);
+  string date = rep.at(i + 2).substr(6);
+  string title = rep.at(i + 3).substr(9);
+
+  //content for each mail
+  string content;
+  int j = i + 4;
+  while (!(rep.at(j).compare(".") == 0 && rep.at(j + 1).empty())) {
+    content += rep.at(j)+"\r\n";
+    j++;
+  }
+
+  string title2 = "RE: " + title;
+  string content2 = "\n==========\n||From: "+email+"\n"+"||Date: "+date+"\n\n"+content;
+
   replace_all(this->body, "$email", email);
-  replace_all(this->body, "$title", title);
-  replace_all(this->body, "$content", content);
+  replace_all(this->body, "$title", title2);
+  replace_all(this->body, "$content", content2);
   (this->headers)[CONTENT_LEN] = to_string((this->body).length());
 }
 
