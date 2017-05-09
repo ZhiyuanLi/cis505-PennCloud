@@ -415,7 +415,7 @@ void Chunkserver::cput(char* &line, bool external, int comm_fd, int seq_num) {
 }
 
 /* DELE r,c */
-void Chunkserver::dele(char* line, bool external, int comm_fd, int seq_num) {
+void Chunkserver::dele(char* line, bool external, bool is_migration, int comm_fd, int seq_num) {
 	char *arguments = new char[strlen(line) - 5 + 1];
 	strncpy(arguments, line + 5, strlen(line) - 5);
 	arguments[strlen(line) - 5] = '\0';
@@ -429,7 +429,7 @@ void Chunkserver::dele(char* line, bool external, int comm_fd, int seq_num) {
 		string filename;
 		filename.assign(rc.at(1), 0, rc.at(1).size() - 2);
 		//Get the value in the corresponding row and colummn
-		lru->dele(user, filename, comm_fd, seq_num);
+		lru->dele(user, filename, comm_fd, seq_num, is_migration);
 		if (external) {
 			write_log(line);
 			if (isPrimary) send_to_secondary(line, user);
@@ -533,7 +533,7 @@ void Chunkserver::migrate_data(string user, int comm_fd) {    // assume user exi
         	char *sync_secondary = new char[temp.size() + 1];
         	strcpy(sync_secondary, temp.c_str());
         	sync_secondary[temp.size()] = '\0';
-        	dele(sync_secondary, true, comm_fd, 0); 
+        	dele(sync_secondary, true, true, comm_fd, 0); 
 
             // If -v
             if (opt_v) {
