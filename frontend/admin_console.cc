@@ -215,11 +215,6 @@ int main(int argc, char *argv[])
 	int num = 0;
 	pthread_create(&frontend_thread, NULL, check_server_state, &num);
 
-	//	const char* backend_filename = argv[optind];
-	//	server_list[1].servertype = "backend";
-	//	server_list[1].Num_of_Servers = parse_all_servers(backend_filename, server_list[0].servertype);
-	//	cout<<backend_filename<<endl;
-
 	// admin_console connect to master via UDP, and get the information of ip and port of backend server
 
 	int udp_fd = socket(PF_INET, SOCK_DGRAM, 0);
@@ -235,23 +230,23 @@ int main(int argc, char *argv[])
 	dest.sin_port = htons(MASTER_PORT);
 	inet_pton(AF_INET, MASTER_IP, &(dest.sin_addr));
 
-	// ask master for backend's ip:port
-	//	string contact_master = "ALL";
-	//	sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0,
-	//			(struct sockaddr *)&dest, sizeof(dest));
-	//	cout << "To master: " << contact_master << endl;
+	//	ask master for backend's ip:port
+	string contact_master = "A";
+	sendto(udp_fd, contact_master.c_str(), contact_master.size(), 0,
+			(struct sockaddr *)&dest, sizeof(dest));
+	cout << "To master: " << contact_master << endl;
 
-	//	struct sockaddr_in src;
-	//	socklen_t srcSize = sizeof(src);
-	//	char feedback[1024];
-	//	int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0,
-	//			(struct sockaddr *)&src, &srcSize);
-	//	feedback[rlen] = 0;
-	//	cout << "From master: " << feedback << endl;
-	//
-	//	server_list[1].Num_of_Servers = parse_backend_servers(feedback);
+	struct sockaddr_in src;
+	socklen_t srcSize = sizeof(src);
+	char feedback[1024];
+	int rlen = recvfrom(udp_fd, feedback, sizeof(feedback) - 1, 0,
+			(struct sockaddr *)&src, &srcSize);
+	feedback[rlen] = 0;
+	cout << "From master: " << feedback << endl;
 
-	close(udp_fd);
+	server_list[1].Num_of_Servers = parse_backend_servers(feedback);
+
+	//	close(udp_fd);
 
 	int nodeID;
 	while(true){
@@ -313,6 +308,18 @@ int main(int argc, char *argv[])
 
 				string line = read_line(sockfd);
 				cout<<line<<endl;
+
+				debug(1, "[%d] Receive from backend:\n", sockfd);
+
+				char msg[] = "getfile ";
+				strcat(msg, user.c_str());
+//				strcat(m, ",email");
+
+				debug(1, "[%d] Send to backend: %s", sockfd, msg);
+				do_write(sockfd, msg, strlen(msg));
+
+				string line2 = read_line(sockfd);
+				cout<<line2<<endl;
 
 				debug(1, "[%d] Receive from backend:\n", sockfd);
 
