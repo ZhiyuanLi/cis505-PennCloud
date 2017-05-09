@@ -378,9 +378,9 @@ void Response::create_new_folder(Request req) {
   store_file(dir, foldername, "empty");
 
   // send to KV store
-  string message("put " + user_name + "," + foldername + "," + "empty" +
-                 "\r\n");
-  send_to_backend(message, user_name);
+  // string message("put " + user_name + "," + foldername + "," + "empty" +
+  //                "\r\n");
+  // send_to_backend(message, user_name);
 
   this->body =
       get_file_content_as_string("html/create-new-folder-success.html");
