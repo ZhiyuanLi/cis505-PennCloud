@@ -35,10 +35,10 @@ public:
 
 // backend servers
 map<int, Pair> servers;
-// users metadata, key:id: valuse: user name set
+// users metadata, key:node id, values: user name set
 map<int, set<string>> users;
 
-//ip:port to id
+// ip:port to id
 map<string, int> server_index;
 
 /*
@@ -140,7 +140,14 @@ int main(int argc, char *argv[]) {
 
     if (command.compare("?") == 0) {
       int key = hash_str(content.c_str());
-      users[key].insert(content);
+      int node_id = get_server_id(key);
+      if (users.count(node_id) == 0) {
+        set<string> l;
+        l.insert(content);
+        users[node_id] = l;
+      } else {
+        users[node_id].insert(content);
+      }
       rep = get_backend_info(key);
       cout << "Object key:" << key << "|"
            << "Server" << rep << endl;
@@ -156,7 +163,7 @@ int main(int argc, char *argv[]) {
       server.port = ntohs(src.sin_port);
       server.running = true;
 
-      //store server index
+      // store server index
       string address = server.ip + ":" + to_string(server.port);
       server_index[address] = id;
 
@@ -181,14 +188,14 @@ int main(int argc, char *argv[]) {
           }
         }
         servers[id] = pair;
-      }else{ // dynamic membership
+      } else { // dynamic membership
         int dest = get_server_id(id);
         set<string> list = users[dest];
         Server dest_server = servers[dest].primary;
-        rep = "P "+ dest_server.ip + ":" + to_string(dest_server.port)+",";
-        for (set<string>::iterator it=list.begin(); it!=list.end(); ++it){
+        rep = "P " + dest_server.ip + ":" + to_string(dest_server.port) + ",";
+        for (set<string>::iterator it = list.begin(); it != list.end(); ++it) {
           int k = hash_str((*it).c_str());
-          if(k < id){
+          if (k < id) {
             rep += *it + ",";
           }
         }
@@ -196,26 +203,28 @@ int main(int argc, char *argv[]) {
 
     }
 
-    //return all backend servers
-    else if(command.compare("A") == 0){
-      for (map<int,Pair>::iterator it=servers.begin(); it!=servers.end(); ++it){
+    // return all backend servers
+    else if (command.compare("A") == 0) {
+      for (map<int, Pair>::iterator it = servers.begin(); it != servers.end();
+           ++it) {
         Pair pair = it->second;
-        rep += "P" + pair.primary.ip + ":" + to_string(pair.primary.port)+",";
-        if(!pair.secondary.ip.empty()){
-          rep += "S" + pair.secondary.ip + ":" + to_string(pair.secondary.port)+",";
+        rep += "P" + pair.primary.ip + ":" + to_string(pair.primary.port) + ",";
+        if (!pair.secondary.ip.empty()) {
+          rep += "S" + pair.secondary.ip + ":" +
+                 to_string(pair.secondary.port) + ",";
         }
       }
     }
 
-    else if(command.compare("U") == 0){
+    else if (command.compare("U") == 0) {
       int node_id = server_index.at(content);
       set<string> list = users[node_id];
-      for (set<string>::iterator it=list.begin(); it!=list.end(); ++it){
-          rep += *it + ",";
+      for (set<string>::iterator it = list.begin(); it != list.end(); ++it) {
+        rep += *it + ",";
       }
     }
 
-
+    cout << rep << endl;
     sendto(sock, rep.c_str(), rep.length(), 0, (struct sockaddr *)&src,
            sizeof(src));
   }
