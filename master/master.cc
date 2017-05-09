@@ -167,40 +167,40 @@ int main(int argc, char *argv[]) {
       string address = server.ip + ":" + to_string(server.port);
       server_index[address] = id;
 
-      if (users.empty()) { // Initialize
-        if (servers.count(id) == 0) {
-          pair.primary = server;
+      if (servers.count(id) == 0) {
+        pair.primary = server;
+        if (users.empty()) { // Initialize
           rep = "P";
-        } else {
-          pair = servers[id];
-          if (!check_server_state(pair.primary.ip, pair.primary.port)) {
-            if (pair.secondary.ip.empty()) {
-              pair.primary = server;
-              rep = "P";
-            } else {
-              pair.primary = pair.secondary;
-              pair.secondary = server;
-              rep = "P=" + pair.primary.ip + ":" + to_string(pair.primary.port);
+        } else { // dynamic membership
+          int dest = get_server_id(id);
+          set<string> list = users[dest];
+          Server dest_server = servers[dest].primary;
+          rep = "P " + dest_server.ip + ":" + to_string(dest_server.port) + ",";
+          for (set<string>::iterator it = list.begin(); it != list.end();
+               ++it) {
+            int k = hash_str((*it).c_str());
+            if (k < id) {
+              rep += *it + ",";
             }
+          }
+        }
+      } else {
+        pair = servers[id];
+        if (!check_server_state(pair.primary.ip, pair.primary.port)) {
+          if (pair.secondary.ip.empty()) {
+            pair.primary = server;
+            rep = "P";
           } else {
+            pair.primary = pair.secondary;
             pair.secondary = server;
             rep = "P=" + pair.primary.ip + ":" + to_string(pair.primary.port);
           }
-        }
-        servers[id] = pair;
-      } else { // dynamic membership
-        int dest = get_server_id(id);
-        set<string> list = users[dest];
-        Server dest_server = servers[dest].primary;
-        rep = "P " + dest_server.ip + ":" + to_string(dest_server.port) + ",";
-        for (set<string>::iterator it = list.begin(); it != list.end(); ++it) {
-          int k = hash_str((*it).c_str());
-          if (k < id) {
-            rep += *it + ",";
-          }
+        } else {
+          pair.secondary = server;
+          rep = "P=" + pair.primary.ip + ":" + to_string(pair.primary.port);
         }
       }
-
+      servers[id] = pair;
     }
 
     // return all backend servers
