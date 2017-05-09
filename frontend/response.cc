@@ -457,15 +457,15 @@ void Response::delete_folder(Request req) {
         remove(file_path.c_str());
 
         // send to KV store
-        string message("dele " + user_name + "," + *it + "\r\n");
-        send_to_backend(message, user_name);
+        // string message("dele " + user_name + "," + *it + "\r\n");
+        // send_to_backend(message, user_name);
       }
     } else {
       remove(file_path.c_str());
 
       // send to KV store
-      string message("dele " + user_name + "," + *it + "\r\n");
-      send_to_backend(message, user_name);
+      // string message("dele " + user_name + "," + *it + "\r\n");
+      // send_to_backend(message, user_name);
     }
   }
 
