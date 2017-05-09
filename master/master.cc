@@ -181,6 +181,7 @@ int main(int argc, char *argv[]) {
             int k = hash_str((*it).c_str());
             if (k < id) {
               rep += *it + ",";
+              users[dest].erase(*it);
             }
           }
         }
