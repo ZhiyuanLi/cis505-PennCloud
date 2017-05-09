@@ -1,4 +1,4 @@
-TARGETS = frontend lb
+TARGETS = frontend lb admin
 
 all: $(TARGETS)
 
@@ -6,6 +6,9 @@ frontend: frontend.cc request.cc response.cc utils.cc store.cc ../webmail/webmai
 	g++ $^ -I/opt/local/include/ -L/opt/local/bin/openssl -lcrypto -lresolv -lpthread -o $@
 
 lb: load_balancer.cc utils.cc
+	g++ $^ -lpthread -o $@
+
+admin: admin_console.cc utils.cc
 	g++ $^ -lpthread -o $@
 
 clean::
