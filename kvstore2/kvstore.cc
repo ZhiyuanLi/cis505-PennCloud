@@ -579,7 +579,7 @@ void *ps_worker (void *arg) {
 			}
 
 			else if (command.compare("dele") == 0) {
-				server.dele(line, true, sock_fd, seq_num);
+				server.dele(line, true, false, sock_fd, seq_num);
 			}
 
 			else if (command.compare("rename") == 0) {
@@ -689,7 +689,7 @@ void *worker (void *arg) {
 			}
 
 			else if (command.compare("dele") == 0) {
-				server.dele(line, true, comm_fd, 0);
+				server.dele(line, true, false, comm_fd, 0);
             	send(comm_fd, done.c_str(), done.size(), 0);
 			}
 

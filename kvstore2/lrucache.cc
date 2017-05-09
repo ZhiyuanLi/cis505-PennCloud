@@ -361,15 +361,17 @@ void LRUCache::cput(string user, string filename, string old_value, string new_v
     }
 }
 
-void LRUCache::dele(string user, string filename, int comm_fd, int seq_num) {
+void LRUCache::dele(string user, string filename, int comm_fd, int seq_num, bool is_migration) {
     string value_read;
     if (get_helper(user, filename, value_read, comm_fd)) { // get will update the user's position in the linked list
     	user_size[user] -= tablets[user]->value[filename].size();
         memory_used -= tablets[user]->value[filename].size();
         tablets[user]->value.erase(filename);
         if (isPrimary) {
-            const char* successmsg = "+OK File deleted\r\n";
-            servermsg(successmsg, comm_fd);
+        	if (!is_migration){
+        		const char* successmsg = "+OK File deleted\r\n";
+            	servermsg(successmsg, comm_fd);
+        	}        
         } else {
             if (seq_num != 0) {
                 string report = "DONE " + user + "," + to_string(seq_num) + "\r\n";
