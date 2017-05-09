@@ -434,7 +434,7 @@ void *ps_worker (void *arg) {  // TODO
 			}
 
 			// Finds the index of the first <CR><LF>
-			int index = strstr(buffer, "\r\n") - buffer;
+			//int index = strstr(buffer, "\r\n") - buffer;
 
 			// Finds the index of the first comma
 			int comma_idx = strstr(buffer, ",") - buffer;
@@ -447,9 +447,9 @@ void *ps_worker (void *arg) {  // TODO
 			int seq_num = atoi(sq);
 
 			// Gets the operation
-			char *line = new char [index - comma_idx + 2];
-			strncpy(line, buffer + comma_idx + 1, index - comma_idx + 1);
-			line[index - comma_idx + 1] = '\0';
+			char *line = new char [strlen(buffer) - comma_idx];
+			strncpy(line, buffer + comma_idx + 1, strlen(buffer) - comma_idx - 1);
+			line[strlen(buffer) - comma_idx - 1] = '\0';
 
 			// Extracts command
 			string command = parse_command(line);
