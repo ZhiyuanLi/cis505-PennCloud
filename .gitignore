@@ -34,3 +34,4 @@
 # kvstore
 kvstore/checkpointing/
 kvstore/metadata/
+upload/
