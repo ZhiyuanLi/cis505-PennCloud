@@ -7,10 +7,29 @@ Which features did you implement?
 
 Did you complete any extra-credit tasks? If so, describe them!
   (list extra-credit tasks)
-  Dynamic membership
+  Dynamic membership with consistent hashing
 
 Any special instructions for building and running your solution?
   (include detailed instructions)
+For each part, go to each directory, type "make".
+1. start ./master
+2. start some pairs with backend server
+eg.
+node id with 20000:
+  primary: ./kvstore  -v -i 20000 -p 2001 -n
+  secondary: ./kvstore  -v -i 20000 -p 2002 -n
+node id with 50000:
+  primary: ./kvstore  -v -i 50000 -p 3001 -n
+  secondary: ./kvstore  -v -i 50000 -p 3002 -n
+3. start frontend server
+eg.
+  ./frontend -p 8000
+  ./frontend -p 8001
+  ./frontend -p 8002
+  ./frontend -p 8003
+4. start load balancer using ./lb -p 9000
+5. start webmail server using ./webmail_server
+6. then go to the localhost:9000 to access the load balancer
 
 Did the members of this team personally write _all_ the code they are
 submitting (other than code from the course web page, code from their
